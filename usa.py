@@ -23,14 +23,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize Session State สำหรับ Watchlist
 if 'symbol' not in st.session_state:
     st.session_state.symbol = 'BTC-USD'
 
 def set_symbol(sym):
     st.session_state.symbol = sym
 
-# CSS Styling
+# CSS Styling (New Premium Stats)
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem; padding-bottom: 5rem; }
@@ -48,27 +47,46 @@ st.markdown("""
             border: none !important; font-weight: bold !important;
         }
         
-        /* Cards */
-        .info-card {
-            background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;
-            text-align: center; border: 1px solid #444;
+        /* ✨ NEW PREMIUM STAT CARDS ✨ */
+        .stat-card {
+            background-color: #1E1E1E;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            height: 100%;
+            transition: transform 0.2s;
         }
-        .info-label { font-size: 0.85rem; color: #aaa; }
-        .info-value { font-size: 1.1rem; font-weight: bold; color: #fff; }
+        .stat-card:hover { transform: translateY(-3px); }
         
-        /* Guru Box */
+        .stat-label {
+            font-size: 0.85rem; color: #aaa; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .stat-value {
+            font-size: 1.3rem; font-weight: bold;
+        }
+        
+        /* Specific Colors */
+        .high-card { border-top: 3px solid #00E5FF; }
+        .high-val { color: #00E5FF; text-shadow: 0 0 10px rgba(0, 229, 255, 0.3); }
+        
+        .low-card { border-top: 3px solid #FF4081; }
+        .low-val { color: #FF4081; text-shadow: 0 0 10px rgba(255, 64, 129, 0.3); }
+        
+        .beta-card { border-top: 3px solid #E040FB; }
+        .beta-val { color: #E040FB; text-shadow: 0 0 10px rgba(224, 64, 251, 0.3); }
+        
+        .div-card { border-top: 3px solid #00E676; }
+        .div-val { color: #00E676; text-shadow: 0 0 10px rgba(0, 230, 118, 0.3); }
+
+        /* Other Components */
         .guru-card {
             background: linear-gradient(135deg, #1a237e 0%, #000000 100%);
             padding: 20px; border-radius: 15px; border: 1px solid #304FFE;
             margin-bottom: 20px; box-shadow: 0 4px 15px rgba(48, 79, 254, 0.3);
         }
-        
-        /* Watchlist Buttons */
         .stButton button { width: 100%; }
-        
-        /* News */
         .news-content { font-size: 1rem; line-height: 1.7; color: #ddd; background: #1a1a1a; padding: 15px; border-radius: 10px; }
-
         button[data-baseweb="tab"] { font-size: 1.1rem !important; padding: 15px !important; flex: 1; }
     </style>
 """, unsafe_allow_html=True)
@@ -87,7 +105,6 @@ def get_data(symbol, period, interval):
         return df, ticker
     except: return pd.DataFrame(), None
 
-# --- Logic ต่างๆ (คงเดิมแต่จัดระเบียบ) ---
 def analyze_ai_signal(df):
     close = df['Close'].iloc[-1]
     ema200 = df['Close'].ewm(span=200).mean().iloc[-1]
@@ -150,7 +167,6 @@ def get_guru_insight(ticker, price):
         return insight, rec, target, pe, beta, div_yield, high52, low52
     except: return "No Data", "-", 0, 0, 0, 0, 0, 0
 
-# --- News ---
 @st.cache_data(ttl=3600) 
 def fetch_content(url, backup=""):
     try:
@@ -195,7 +211,6 @@ def get_hybrid_news(ticker, symbol):
 
 # --- 3. UI Layout ---
 
-# Sidebar: Watchlist & Settings
 with st.sidebar:
     st.markdown("### ⭐ รายการโปรด (Watchlist)")
     col1, col2 = st.columns(2)
@@ -214,11 +229,8 @@ with st.sidebar:
     interval = st.selectbox("Interval", ["1d", "1wk"], index=0)
     show_ema = st.checkbox("Show EMA", True)
 
-# Main Content
 st.markdown("### 💎 Smart Trader AI : Ultimate")
 col_in, col_btn = st.columns([3.5, 1])
-
-# Input เชื่อมกับ Session State
 with col_in: 
     symbol_input = st.text_input("Search", value=st.session_state.symbol, label_visibility="collapsed")
 with col_btn: 
@@ -235,7 +247,6 @@ if symbol:
     if df.empty:
         st.warning(f"ไม่พบข้อมูล '{symbol}'")
     else:
-        # Indicators
         df['RSI'] = 100 - (100 / (1 + (df['Close'].diff().clip(lower=0).rolling(14).mean() / df['Close'].diff().clip(upper=0).abs().rolling(14).mean())))
         df['EMA50'] = df['Close'].ewm(span=50).mean()
         df['EMA200'] = df['Close'].ewm(span=200).mean()
@@ -249,7 +260,6 @@ if symbol:
         ai_text, ai_color, ai_reason = analyze_ai_signal(df)
         insight, rec, target, pe, beta, div_yield, high52, low52 = get_guru_insight(ticker, price)
         
-        # --- Header Section ---
         st.markdown(f"""
         <div style="background:#111; padding:20px; border-radius:15px; border-top:5px solid {color_p}; text-align:center; margin-bottom:20px;">
             <div style="font-size:1.2rem; color:#aaa;">{symbol}</div>
@@ -261,18 +271,40 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
         
-        # --- Key Stats (New Feature) ---
+        # --- ✨ NEW COLORFUL STATS ---
         c1, c2, c3, c4 = st.columns(4)
-        with c1: st.markdown(f"<div class='info-card'><div class='info-label'>52 Week High</div><div class='info-value'>{high52:,.2f}</div></div>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<div class='info-card'><div class='info-label'>52 Week Low</div><div class='info-value'>{low52:,.2f}</div></div>", unsafe_allow_html=True)
-        with c3: st.markdown(f"<div class='info-card'><div class='info-label'>Beta (Volatility)</div><div class='info-value'>{beta:.2f}</div></div>", unsafe_allow_html=True)
+        
+        with c1: 
+            st.markdown(f"""
+            <div class="stat-card high-card">
+                <div class="stat-label">🚀 52 Week High</div>
+                <div class="stat-value high-val">{high52:,.2f}</div>
+            </div>""", unsafe_allow_html=True)
+            
+        with c2: 
+            st.markdown(f"""
+            <div class="stat-card low-card">
+                <div class="stat-label">🔻 52 Week Low</div>
+                <div class="stat-value low-val">{low52:,.2f}</div>
+            </div>""", unsafe_allow_html=True)
+            
+        with c3: 
+            st.markdown(f"""
+            <div class="stat-card beta-card">
+                <div class="stat-label">⚡ Beta (Vol)</div>
+                <div class="stat-value beta-val">{beta:.2f}</div>
+            </div>""", unsafe_allow_html=True)
+            
         with c4: 
             div_show = f"{div_yield*100:.2f}%" if div_yield else "-"
-            st.markdown(f"<div class='info-card'><div class='info-label'>Dividend Yield</div><div class='info-value'>{div_show}</div></div>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="stat-card div-card">
+                <div class="stat-label">💰 Dividend</div>
+                <div class="stat-value div-val">{div_show}</div>
+            </div>""", unsafe_allow_html=True)
 
         st.write("") # Spacer
 
-        # Tabs
         tab1, tab2, tab3, tab4 = st.tabs(["📊 กราฟ", "🧱 แนวรับต้าน", "📰 ข่าว", "🧐 กูรู"])
         
         with tab1:
@@ -326,13 +358,12 @@ if symbol:
                     {insight}
                 </div>
                 <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; text-align:center;">
-                    <div class="info-card"><div class="info-value" style="color:#00E676">{rec}</div><div class="info-label">Consensus</div></div>
-                    <div class="info-card"><div class="info-value">{target:,.2f}</div><div class="info-label">Target Price</div></div>
-                    <div class="info-card"><div class="info-value">{pe:.2f}</div><div class="info-label">P/E Ratio</div></div>
+                    <div style="background:#111; padding:10px; border-radius:8px;"><div style="font-weight:bold; color:#00E676; font-size:1.1rem;">{rec}</div><div style="font-size:0.8rem; color:#aaa;">Consensus</div></div>
+                    <div style="background:#111; padding:10px; border-radius:8px;"><div style="font-weight:bold; font-size:1.1rem;">{target:,.2f}</div><div style="font-size:0.8rem; color:#aaa;">Target Price</div></div>
+                    <div style="background:#111; padding:10px; border-radius:8px;"><div style="font-weight:bold; font-size:1.1rem;">{pe:.2f}</div><div style="font-size:0.8rem; color:#aaa;">P/E Ratio</div></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-    # Footer
     st.markdown("---")
-    st.caption("⚠️ **Disclaimer:** ข้อมูลทั้งหมดเป็นเพียงการวิเคราะห์ทางเทคนิคและรวบรวมข่าวสาร ไม่ใช่คำแนะนำในการลงทุน ผู้ใช้งานควรศึกษาข้อมูลเพิ่มเติมก่อนตัดสินใจลงทุน (Do Your Own Research)")
+    st.caption("⚠️ **Disclaimer:** ข้อมูลทั้งหมดเพื่อการศึกษาเท่านั้น (Educational Purpose Only)")
