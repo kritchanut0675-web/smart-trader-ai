@@ -17,7 +17,7 @@ except LookupError: nltk.download('punkt')
 
 # --- 1. ตั้งค่าหน้าเว็บ & Session State ---
 st.set_page_config(
-    page_title="Smart Trader AI : Ultimate",
+    page_title="Smart Trader AI : Ultimate Zoom",
     layout="wide",
     page_icon="💎",
     initial_sidebar_state="expanded"
@@ -79,6 +79,7 @@ st.markdown("""
 def get_data(symbol, period, interval):
     try:
         ticker = yf.Ticker(symbol)
+        # ดึงข้อมูลมาเยอะหน่อยเผื่อการ Zoom (default period ควรเยอะถ้าจะซูม)
         df = ticker.history(period=period, interval=interval)
         if df.empty and symbol.endswith("-THB"):
             base = symbol.replace("-THB", "-USD")
@@ -88,28 +89,15 @@ def get_data(symbol, period, interval):
         return df, ticker
     except: return pd.DataFrame(), None
 
-# --- 🔥 HEIKIN ASHI CALCULATION ---
 def calculate_heikin_ashi(df):
-    """แปลง DataFrame ปกติให้เป็น Heikin Ashi"""
     ha_df = df.copy()
-    
-    # HA Close = (Open + High + Low + Close) / 4
     ha_df['HA_Close'] = (df['Open'] + df['High'] + df['Low'] + df['Close']) / 4
-    
-    # HA Open = (Prev HA Open + Prev HA Close) / 2
-    # ต้องวน Loop เพราะต้องใช้ค่าก่อนหน้า
     ha_open = [ (df['Open'][0] + df['Close'][0]) / 2 ]
     for i in range(1, len(df)):
         ha_open.append( (ha_open[i-1] + ha_df['HA_Close'].iloc[i-1]) / 2 )
-    
     ha_df['HA_Open'] = ha_open
-    
-    # HA High = Max(High, HA Open, HA Close)
     ha_df['HA_High'] = ha_df[['High', 'HA_Open', 'HA_Close']].max(axis=1)
-    
-    # HA Low = Min(Low, HA Open, HA Close)
     ha_df['HA_Low'] = ha_df[['Low', 'HA_Open', 'HA_Close']].min(axis=1)
-    
     return ha_df
 
 def analyze_ai_signal(df):
@@ -163,13 +151,12 @@ def get_guru_insight(ticker, price):
         insight = f"**{name}** ({sector})\n\n"
         if target and target > 0:
             upside = ((target - price) / price) * 100
-            if upside > 0: insight += f"🎯 **Target:** มี Upside **{upside:.1f}%** (เป้า {target:,.2f}) "
-            else: insight += f"⚠️ **Target:** ราคาสูงกว่าเป้าเฉลี่ยที่ **{target:,.2f}** "
-        else: insight += "⚠️ ไม่มีข้อมูลราคาเป้าหมาย "
-
+            if upside > 0: insight += f"🎯 **Target:** Upside **{upside:.1f}%** (เป้า {target:,.2f}) "
+            else: insight += f"⚠️ **Target:** Overvalued (เป้า {target:,.2f}) "
+        
         if pe > 0:
-            if pe < 15: insight += f"💎 **Valuation:** P/E ต่ำ ({pe:.2f}) เป็น Value Stock"
-            elif pe > 50: insight += f"🚀 **Valuation:** P/E สูง ({pe:.2f}) เป็น Growth Stock"
+            if pe < 15: insight += f"💎 **P/E:** ต่ำ ({pe:.2f}) Value Stock"
+            elif pe > 50: insight += f"🚀 **P/E:** สูง ({pe:.2f}) Growth Stock"
         
         return insight, rec, target, pe, beta, div_yield, high52, low52
     except: return "No Data", "-", 0, 0, 0, 0, 0, 0
@@ -233,15 +220,13 @@ with st.sidebar:
         
     st.markdown("---")
     st.header("⚙️ Setting")
-    
-    # 🔥 เพิ่มตัวเลือก Chart Type
-    chart_type = st.radio("รูปแบบกราฟ", ["Candlestick (ปกติ)", "Heikin Ashi (สมูท)"], index=0)
-    
-    period = st.selectbox("Period", ["1mo", "3mo", "6mo", "1y", "2y"], index=3)
+    chart_type = st.radio("รูปแบบกราฟ", ["Candlestick", "Heikin Ashi"], index=0)
+    # ปรับ default period เป็น 2y เพื่อให้ zoom out ได้ไกลๆ
+    period = st.selectbox("Period (Data Range)", ["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"], index=4) 
     interval = st.selectbox("Interval", ["1d", "1wk"], index=0)
     show_ema = st.checkbox("Show EMA", True)
 
-st.markdown("### 💎 Smart Trader AI : Ultimate")
+st.markdown("### 💎 Smart Trader AI : Ultimate Zoom")
 col_in, col_btn = st.columns([3.5, 1])
 
 with col_in: 
@@ -260,7 +245,7 @@ if symbol:
     if df.empty:
         st.warning(f"ไม่พบข้อมูล '{symbol}'")
     else:
-        # Indicators (คำนวณจากราคาจริงเสมอ เพื่อความแม่นยำ)
+        # Indicators
         df['RSI'] = 100 - (100 / (1 + (df['Close'].diff().clip(lower=0).rolling(14).mean() / df['Close'].diff().clip(upper=0).abs().rolling(14).mean())))
         df['EMA50'] = df['Close'].ewm(span=50).mean()
         df['EMA200'] = df['Close'].ewm(span=200).mean()
@@ -297,34 +282,68 @@ if symbol:
 
         st.write("")
 
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 กราฟ", "🧱 แนวรับต้าน", "📰 ข่าว", "🧐 กูรู"])
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 กราฟ & ซูม", "🧱 แนวรับต้าน", "📰 ข่าว", "🧐 กูรู"])
         
         with tab1:
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
             
-            # 🔥 Logic เลือกประเภทกราฟ
+            # Chart Logic
             if "Heikin Ashi" in chart_type:
                 ha_df = calculate_heikin_ashi(df)
-                # ใช้ข้อมูล HA สำหรับวาดแท่งเทียน
-                fig.add_trace(go.Candlestick(x=ha_df.index, open=ha_df['HA_Open'], high=ha_df['HA_High'], low=ha_df['HA_Low'], close=ha_df['HA_Close'], name="Heikin Ashi"), row=1, col=1)
+                fig.add_trace(go.Candlestick(x=ha_df.index, open=ha_df['HA_Open'], high=ha_df['HA_High'], low=ha_df['HA_Low'], close=ha_df['HA_Close'], name="HA Price"), row=1, col=1)
             else:
-                # ใช้ข้อมูลปกติ
                 fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
 
             if show_ema:
                 fig.add_trace(go.Scatter(x=df.index, y=df['EMA50'], line=dict(color='#2979FF', width=1), name="EMA50"), row=1, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=df['EMA200'], line=dict(color='#FF9100', width=1), name="EMA200"), row=1, col=1)
-            for l in levels:
-                if l['score'] >= 3:
-                    c = 'green' if l['type']=='Support' else 'red'
-                    fig.add_hline(y=l['price'], line_dash='solid', line_color=c, opacity=0.5, row=1, col=1)
-            fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#AA00FF')), row=2, col=1)
-            fig.add_hline(y=70, line_dash='dot', line_color='red', row=2, col=1)
-            fig.add_hline(y=30, line_dash='dot', line_color='green', row=2, col=1)
             
-            # ปรับสี Candlestick ให้สวยงาม
-            fig.update_layout(height=450, margin=dict(l=0, r=0, t=10, b=10), xaxis_rangeslider_visible=False, template="plotly_dark", dragmode='pan')
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            # RSI Area Color (Signal Visual)
+            # สร้างเส้น RSI
+            fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#AA00FF', width=2), name="RSI"), row=2, col=1)
+            
+            # เพิ่มเส้น Overbought/Oversold
+            fig.add_hline(y=70, line_dash='dot', line_color='#FF1744', row=2, col=1) # แดง
+            fig.add_hline(y=30, line_dash='dot', line_color='#00E676', row=2, col=1) # เขียว
+            
+            # ระบายสีพื้นที่ (Background Zones) เพื่อบอก Bullish/Bearish Zones
+            # *วิธีนี้ใช้ Shape ในการระบายสีพื้นหลังของกราฟ RSI*
+            fig.add_hrect(y0=70, y1=100, fillcolor="red", opacity=0.1, layer="below", row=2, col=1, annotation_text="🐻 Bearish Zone")
+            fig.add_hrect(y0=0, y1=30, fillcolor="green", opacity=0.1, layer="below", row=2, col=1, annotation_text="🐂 Bullish Zone")
+
+            # เพิ่ม Annotation บอกค่า RSI ล่าสุด
+            last_rsi = df['RSI'].iloc[-1]
+            rsi_status_text = "🐂 BULLISH" if last_rsi < 30 else "🐻 BEARISH" if last_rsi > 70 else "NEUTRAL"
+            rsi_status_color = "#00E676" if last_rsi < 30 else "#FF1744" if last_rsi > 70 else "#FFFF00"
+            
+            fig.add_annotation(
+                xref="paper", yref="paper", x=1, y=1,
+                text=f"RSI: {last_rsi:.1f} ({rsi_status_text})",
+                showarrow=False, font=dict(color=rsi_status_color, size=12),
+                row=2, col=1
+            )
+
+            # --- 🔎 ZOOM BUTTONS CONFIGURATION ---
+            fig.update_xaxes(
+                rangeslider_visible=False,
+                rangeselector=dict(
+                    buttons=list([
+                        dict(count=1, label="1m", step="month", stepmode="backward"),
+                        dict(count=3, label="3m", step="month", stepmode="backward"),
+                        dict(count=6, label="6m", step="month", stepmode="backward"),
+                        dict(count=1, label="YTD", step="year", stepmode="todate"),
+                        dict(count=1, label="1y", step="year", stepmode="backward"),
+                        dict(step="all", label="All")
+                    ]),
+                    font=dict(color="black"),
+                    bgcolor="#DDDDDD",
+                    activecolor="#2962FF"
+                ),
+                row=1, col=1
+            )
+
+            fig.update_layout(height=550, margin=dict(l=0, r=0, t=10, b=10), template="plotly_dark", dragmode='pan')
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True}) # เปิด ModeBar เพื่อให้มีปุ่ม Zoom มาตรฐานด้วย
             
         with tab2:
             res = sorted([l for l in levels if l['type']=='Resistance' and l['price']>price], key=lambda x: x['price'])[:4]
