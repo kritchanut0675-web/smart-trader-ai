@@ -1,0 +1,10 @@
+streamlit
+yfinance
+pandas
+numpy
+plotly
+scipy
+textblob
+googletrans==4.0.0-rc1
+feedparser
+beautifulsoup4
