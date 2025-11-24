@@ -11,3 +11,4 @@ beautifulsoup4
 newspaper3k
 lxml[html_clean]
 requests
+nltk
