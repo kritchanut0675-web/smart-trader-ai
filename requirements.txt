@@ -8,3 +8,6 @@ textblob
 deep-translator
 feedparser
 beautifulsoup4
+newspaper3k
+lxml[html_clean]
+requests
