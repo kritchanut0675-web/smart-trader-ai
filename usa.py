@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy.stats import linregress
 from textblob import TextBlob
-from googletrans import Translator
+from deep_translator import GoogleTranslator  # <-- เปลี่ยนมาใช้ตัวนี้แทน
 import feedparser
 from bs4 import BeautifulSoup
 
@@ -39,7 +39,6 @@ st.markdown("""
 
 st.title("📈 Smart Trader AI (Complete Edition)")
 
-
 # --- 2. Functions ---
 
 def clean_html(html_text):
@@ -47,7 +46,6 @@ def clean_html(html_text):
         return BeautifulSoup(html_text, "html.parser").get_text()
     except:
         return html_text
-
 
 def get_data(symbol, period, interval):
     ticker = yf.Ticker(symbol)
@@ -60,14 +58,13 @@ def get_data(symbol, period, interval):
         try:
             usd_thb = yf.Ticker("THB=X").history(period="1d")['Close'].iloc[-1]
         except:
-            usd_thb = 34.0
-
+            usd_thb = 34.0 
+        
         if not df.empty:
             cols = ['Open', 'High', 'Low', 'Close']
             df[cols] = df[cols] * usd_thb
 
     return df
-
 
 def analyze_trend_summary(df):
     """วิเคราะห์ภาพรวมตลาด"""
@@ -75,7 +72,7 @@ def analyze_trend_summary(df):
     ema50 = df['Close'].ewm(span=50).mean().iloc[-1]
     ema200 = df['Close'].ewm(span=200).mean().iloc[-1]
     rsi = df['RSI'].iloc[-1]
-
+    
     # 1. Trend Analysis
     if last_close > ema50 and last_close > ema200:
         trend = "ขาขึ้นแข็งแกร่ง (Strong Uptrend)"
@@ -103,34 +100,29 @@ def analyze_trend_summary(df):
 
     return trend, trend_color, rsi_stat, rsi_color
 
-
 def is_psychological(price):
-    if price > 10000:
-        return price % 1000 < 100 or price % 1000 > 900
-    elif price > 100:
-        return price % 10 < 0.5 or price % 10 > 9.5
-    else:
-        return abs(price - round(price)) < 0.1
-
+    if price > 10000: return price % 1000 < 100 or price % 1000 > 900
+    elif price > 100: return price % 10 < 0.5 or price % 10 > 9.5
+    else: return abs(price - round(price)) < 0.1
 
 def analyze_levels(df):
     raw_levels = []
     # Fractal Logic
     for i in range(2, df.shape[0] - 2):
         if df['Low'][i] < df['Low'][i - 1] and df['Low'][i] < df['Low'][i + 1] and \
-                df['Low'][i + 1] < df['Low'][i + 2] and df['Low'][i - 1] < df['Low'][i - 2]:
+           df['Low'][i + 1] < df['Low'][i + 2] and df['Low'][i - 1] < df['Low'][i - 2]:
             raw_levels.append({'price': df['Low'][i], 'type': 'Support'})
-
+            
         if df['High'][i] > df['High'][i - 1] and df['High'][i] > df['High'][i + 1] and \
-                df['High'][i + 1] > df['High'][i + 2] and df['High'][i - 1] > df['High'][i - 2]:
+           df['High'][i + 1] > df['High'][i + 2] and df['High'][i - 1] > df['High'][i - 2]:
             raw_levels.append({'price': df['High'][i], 'type': 'Resistance'})
 
     if not raw_levels: return []
 
     raw_levels.sort(key=lambda x: x['price'])
     clusters = []
-    threshold = df['Close'].mean() * 0.015
-
+    threshold = df['Close'].mean() * 0.015 
+    
     for lvl in raw_levels:
         if not clusters:
             clusters.append({'price': lvl['price'], 'count': 1, 'type': lvl['type']})
@@ -138,7 +130,7 @@ def analyze_levels(df):
         last = clusters[-1]
         if abs(lvl['price'] - last['price']) < threshold:
             last['count'] += 1
-            last['price'] = (last['price'] * (last['count'] - 1) + lvl['price']) / last['count']
+            last['price'] = (last['price'] * (last['count']-1) + lvl['price']) / last['count']
         else:
             clusters.append({'price': lvl['price'], 'count': 1, 'type': lvl['type']})
 
@@ -168,27 +160,24 @@ def analyze_levels(df):
             label = "☁️ บางที่สุด"
             color = "rgba(255, 255, 255, 0.3)"
             width = 1
-
+        
         final_levels.append({
             'price': price, 'type': lvl_type, 'label': label,
             'color': color, 'width': width, 'score': count + (2 if is_psych else 0)
         })
     return final_levels
 
-
 def get_news(query):
     q = query.replace("-THB", "").replace("-USD", "")
     url = f"https://news.google.com/rss/search?q={q}+when:3d&hl=en-US&gl=US&ceid=US:en"
     return feedparser.parse(url).entries[:5]
 
-
 def translate_content(text):
     try:
-        translator = Translator()
-        return translator.translate(text[:500], src='en', dest='th').text
+        # ใช้ deep_translator แปลภาษา (รองรับ Python 3.13)
+        return GoogleTranslator(source='auto', target='th').translate(text[:500])
     except:
         return text
-
 
 # --- 3. Sidebar Controls ---
 st.sidebar.header("🔍 ค้นหา")
@@ -224,7 +213,7 @@ if symbol:
         gain = (delta.where(delta > 0, 0)).rolling(14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
         df['RSI'] = 100 - (100 / (1 + (gain / loss)))
-
+        
         # EMA
         df['EMA50'] = df['Close'].ewm(span=50, adjust=False).mean()
         df['EMA200'] = df['Close'].ewm(span=200, adjust=False).mean()
@@ -233,7 +222,7 @@ if symbol:
         levels_data = analyze_levels(df)
         current_price = df['Close'].iloc[-1]
         display_levels = [l for l in levels_data if show_weak or l['label'] != "☁️ บางที่สุด"]
-
+        
         # Trend Analysis Summary
         trend_txt, trend_col, rsi_txt, rsi_col = analyze_trend_summary(df)
 
@@ -245,7 +234,7 @@ if symbol:
             <h1 style="margin:0; font-size: 36px; color: {price_color};">{current_price:,.2f}</h1>
         </div>
         """, unsafe_allow_html=True)
-
+        
         # AI Summary Box
         st.sidebar.markdown("### 🤖 AI Market Status")
         st.sidebar.markdown(f"""
@@ -255,10 +244,8 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
 
-        supports = sorted([l for l in display_levels if l['type'] == "Support" and l['price'] < current_price],
-                          key=lambda x: x['price'], reverse=True)[:3]
-        resistances = sorted([l for l in display_levels if l['type'] == "Resistance" and l['price'] > current_price],
-                             key=lambda x: x['price'])[:3]
+        supports = sorted([l for l in display_levels if l['type'] == "Support" and l['price'] < current_price], key=lambda x: x['price'], reverse=True)[:3]
+        resistances = sorted([l for l in display_levels if l['type'] == "Resistance" and l['price'] > current_price], key=lambda x: x['price'])[:3]
 
         # Resistance Table
         st.sidebar.markdown('<div class="res-header">🟥 แนวต้าน (Resistance)</div>', unsafe_allow_html=True)
@@ -279,19 +266,16 @@ if symbol:
         st.sidebar.markdown(sup_table, unsafe_allow_html=True)
 
         # --- Chart Display ---
-        # ปรับความสูง Row: ถ้ามี RSI ให้ Row 2 สูงหน่อย, Volume ซ้อนกับ Price หรือแยก?
-        # เพื่อความสวยงาม: Row 1 = Price+EMA, Row 2 = Volume, Row 3 = RSI
-
         rows = 1
         row_heights = [1.0]
-
+        
         if show_vol and show_rsi:
             rows = 3
             row_heights = [0.6, 0.2, 0.2]
         elif show_vol or show_rsi:
             rows = 2
             row_heights = [0.7, 0.3]
-
+            
         fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=row_heights)
 
         # 1. Price Candle
@@ -300,11 +284,8 @@ if symbol:
 
         # EMA Lines
         if show_ema:
-            fig.add_trace(go.Scatter(x=df['Date'], y=df['EMA50'], name='EMA 50', line=dict(color='#2962FF', width=1.5)),
-                          row=1, col=1)
-            fig.add_trace(
-                go.Scatter(x=df['Date'], y=df['EMA200'], name='EMA 200', line=dict(color='#FF6D00', width=1.5)), row=1,
-                col=1)
+            fig.add_trace(go.Scatter(x=df['Date'], y=df['EMA50'], name='EMA 50', line=dict(color='#2962FF', width=1.5)), row=1, col=1)
+            fig.add_trace(go.Scatter(x=df['Date'], y=df['EMA200'], name='EMA 200', line=dict(color='#FF6D00', width=1.5)), row=1, col=1)
 
         # S/R Levels
         for lvl in display_levels:
@@ -319,27 +300,21 @@ if symbol:
         if show_trend:
             x_nums = np.arange(len(df))
             slope, intercept, _, _, _ = linregress(x_nums, df['Close'])
-            fig.add_trace(go.Scatter(x=df['Date'], y=slope * x_nums + intercept, mode='lines', name='Trend',
-                                     line=dict(color='#FFFF00', width=2)), row=1, col=1)
+            fig.add_trace(go.Scatter(x=df['Date'], y=slope * x_nums + intercept, mode='lines', name='Trend', line=dict(color='#FFFF00', width=2)), row=1, col=1)
 
-        # 2. Volume & RSI Placement logic
+        # 2. Volume & RSI
         next_row = 2
-
         if show_vol:
             colors = ['red' if row['Open'] - row['Close'] >= 0 else 'green' for index, row in df.iterrows()]
-            fig.add_trace(go.Bar(x=df['Date'], y=df['Volume'], marker_color=colors, name='Volume', opacity=0.8),
-                          row=next_row, col=1)
+            fig.add_trace(go.Bar(x=df['Date'], y=df['Volume'], marker_color=colors, name='Volume', opacity=0.8), row=next_row, col=1)
             next_row += 1
 
         if show_rsi:
-            fig.add_trace(go.Scatter(x=df['Date'], y=df['RSI'], name='RSI', line=dict(color='#A569BD')),
-                          row=next_row if show_vol else 2, col=1)
+            fig.add_trace(go.Scatter(x=df['Date'], y=df['RSI'], name='RSI', line=dict(color='#A569BD')), row=next_row if show_vol else 2, col=1)
             fig.add_hline(y=70, line_dash="dash", line_color="red", row=next_row if show_vol else 2, col=1)
             fig.add_hline(y=30, line_dash="dash", line_color="green", row=next_row if show_vol else 2, col=1)
 
-        fig.update_layout(height=700, template="plotly_dark", margin=dict(l=10, r=10, t=30, b=10),
-                          xaxis_rangeslider_visible=False,
-                          legend=dict(orientation="h", y=1, x=0, bgcolor='rgba(0,0,0,0)'))
+        fig.update_layout(height=700, template="plotly_dark", margin=dict(l=10, r=10, t=30, b=10), xaxis_rangeslider_visible=False, legend=dict(orientation="h", y=1, x=0, bgcolor='rgba(0,0,0,0)'))
         st.plotly_chart(fig, use_container_width=True)
 
         # --- News ---
@@ -356,7 +331,7 @@ if symbol:
                 link = item.link
                 blob = TextBlob(title_en)
                 polarity = blob.sentiment.polarity
-
+                
                 sentiment_icon = "😐"
                 box_color = "#333"
                 if polarity > 0.1:
