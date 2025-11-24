@@ -29,7 +29,7 @@ if 'symbol' not in st.session_state:
 def set_symbol(sym):
     st.session_state.symbol = sym
 
-# CSS Styling (New Premium Stats)
+# CSS Styling
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem; padding-bottom: 5rem; }
@@ -47,47 +47,30 @@ st.markdown("""
             border: none !important; font-weight: bold !important;
         }
         
-        /* ✨ NEW PREMIUM STAT CARDS ✨ */
+        /* Stats Cards */
         .stat-card {
-            background-color: #1E1E1E;
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            height: 100%;
-            transition: transform 0.2s;
+            background-color: #1E1E1E; padding: 15px; border-radius: 10px;
+            text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            height: 100%; transition: transform 0.2s;
         }
         .stat-card:hover { transform: translateY(-3px); }
+        .stat-label { font-size: 0.85rem; color: #aaa; margin-bottom: 5px; text-transform: uppercase; }
+        .stat-value { font-size: 1.3rem; font-weight: bold; }
         
-        .stat-label {
-            font-size: 0.85rem; color: #aaa; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;
-        }
-        .stat-value {
-            font-size: 1.3rem; font-weight: bold;
-        }
-        
-        /* Specific Colors */
-        .high-card { border-top: 3px solid #00E5FF; }
-        .high-val { color: #00E5FF; text-shadow: 0 0 10px rgba(0, 229, 255, 0.3); }
-        
-        .low-card { border-top: 3px solid #FF4081; }
-        .low-val { color: #FF4081; text-shadow: 0 0 10px rgba(255, 64, 129, 0.3); }
-        
-        .beta-card { border-top: 3px solid #E040FB; }
-        .beta-val { color: #E040FB; text-shadow: 0 0 10px rgba(224, 64, 251, 0.3); }
-        
-        .div-card { border-top: 3px solid #00E676; }
-        .div-val { color: #00E676; text-shadow: 0 0 10px rgba(0, 230, 118, 0.3); }
+        .high-card { border-top: 3px solid #00E5FF; } .high-val { color: #00E5FF; }
+        .low-card { border-top: 3px solid #FF4081; } .low-val { color: #FF4081; }
+        .beta-card { border-top: 3px solid #E040FB; } .beta-val { color: #E040FB; }
+        .div-card { border-top: 3px solid #00E676; } .div-val { color: #00E676; }
 
-        /* Other Components */
+        /* Guru & News */
         .guru-card {
             background: linear-gradient(135deg, #1a237e 0%, #000000 100%);
             padding: 20px; border-radius: 15px; border: 1px solid #304FFE;
             margin-bottom: 20px; box-shadow: 0 4px 15px rgba(48, 79, 254, 0.3);
         }
-        .stButton button { width: 100%; }
         .news-content { font-size: 1rem; line-height: 1.7; color: #ddd; background: #1a1a1a; padding: 15px; border-radius: 10px; }
         button[data-baseweb="tab"] { font-size: 1.1rem !important; padding: 15px !important; flex: 1; }
+        .stButton button { width: 100%; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -104,6 +87,30 @@ def get_data(symbol, period, interval):
             if not df.empty: df[['Open','High','Low','Close']] *= usd
         return df, ticker
     except: return pd.DataFrame(), None
+
+# --- 🔥 HEIKIN ASHI CALCULATION ---
+def calculate_heikin_ashi(df):
+    """แปลง DataFrame ปกติให้เป็น Heikin Ashi"""
+    ha_df = df.copy()
+    
+    # HA Close = (Open + High + Low + Close) / 4
+    ha_df['HA_Close'] = (df['Open'] + df['High'] + df['Low'] + df['Close']) / 4
+    
+    # HA Open = (Prev HA Open + Prev HA Close) / 2
+    # ต้องวน Loop เพราะต้องใช้ค่าก่อนหน้า
+    ha_open = [ (df['Open'][0] + df['Close'][0]) / 2 ]
+    for i in range(1, len(df)):
+        ha_open.append( (ha_open[i-1] + ha_df['HA_Close'].iloc[i-1]) / 2 )
+    
+    ha_df['HA_Open'] = ha_open
+    
+    # HA High = Max(High, HA Open, HA Close)
+    ha_df['HA_High'] = ha_df[['High', 'HA_Open', 'HA_Close']].max(axis=1)
+    
+    # HA Low = Min(Low, HA Open, HA Close)
+    ha_df['HA_Low'] = ha_df[['Low', 'HA_Open', 'HA_Close']].min(axis=1)
+    
+    return ha_df
 
 def analyze_ai_signal(df):
     close = df['Close'].iloc[-1]
@@ -167,6 +174,7 @@ def get_guru_insight(ticker, price):
         return insight, rec, target, pe, beta, div_yield, high52, low52
     except: return "No Data", "-", 0, 0, 0, 0, 0, 0
 
+# --- News ---
 @st.cache_data(ttl=3600) 
 def fetch_content(url, backup=""):
     try:
@@ -225,12 +233,17 @@ with st.sidebar:
         
     st.markdown("---")
     st.header("⚙️ Setting")
+    
+    # 🔥 เพิ่มตัวเลือก Chart Type
+    chart_type = st.radio("รูปแบบกราฟ", ["Candlestick (ปกติ)", "Heikin Ashi (สมูท)"], index=0)
+    
     period = st.selectbox("Period", ["1mo", "3mo", "6mo", "1y", "2y"], index=3)
     interval = st.selectbox("Interval", ["1d", "1wk"], index=0)
     show_ema = st.checkbox("Show EMA", True)
 
 st.markdown("### 💎 Smart Trader AI : Ultimate")
 col_in, col_btn = st.columns([3.5, 1])
+
 with col_in: 
     symbol_input = st.text_input("Search", value=st.session_state.symbol, label_visibility="collapsed")
 with col_btn: 
@@ -247,6 +260,7 @@ if symbol:
     if df.empty:
         st.warning(f"ไม่พบข้อมูล '{symbol}'")
     else:
+        # Indicators (คำนวณจากราคาจริงเสมอ เพื่อความแม่นยำ)
         df['RSI'] = 100 - (100 / (1 + (df['Close'].diff().clip(lower=0).rolling(14).mean() / df['Close'].diff().clip(upper=0).abs().rolling(14).mean())))
         df['EMA50'] = df['Close'].ewm(span=50).mean()
         df['EMA200'] = df['Close'].ewm(span=200).mean()
@@ -260,6 +274,7 @@ if symbol:
         ai_text, ai_color, ai_reason = analyze_ai_signal(df)
         insight, rec, target, pe, beta, div_yield, high52, low52 = get_guru_insight(ticker, price)
         
+        # --- Header ---
         st.markdown(f"""
         <div style="background:#111; padding:20px; border-radius:15px; border-top:5px solid {color_p}; text-align:center; margin-bottom:20px;">
             <div style="font-size:1.2rem; color:#aaa;">{symbol}</div>
@@ -271,45 +286,31 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
         
-        # --- ✨ NEW COLORFUL STATS ---
+        # --- Stats ---
         c1, c2, c3, c4 = st.columns(4)
-        
-        with c1: 
-            st.markdown(f"""
-            <div class="stat-card high-card">
-                <div class="stat-label">🚀 52 Week High</div>
-                <div class="stat-value high-val">{high52:,.2f}</div>
-            </div>""", unsafe_allow_html=True)
-            
-        with c2: 
-            st.markdown(f"""
-            <div class="stat-card low-card">
-                <div class="stat-label">🔻 52 Week Low</div>
-                <div class="stat-value low-val">{low52:,.2f}</div>
-            </div>""", unsafe_allow_html=True)
-            
-        with c3: 
-            st.markdown(f"""
-            <div class="stat-card beta-card">
-                <div class="stat-label">⚡ Beta (Vol)</div>
-                <div class="stat-value beta-val">{beta:.2f}</div>
-            </div>""", unsafe_allow_html=True)
-            
+        with c1: st.markdown(f"<div class='stat-card high-card'><div class='stat-label'>🚀 52 Week High</div><div class='stat-value high-val'>{high52:,.2f}</div></div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='stat-card low-card'><div class='stat-label'>🔻 52 Week Low</div><div class='stat-value low-val'>{low52:,.2f}</div></div>", unsafe_allow_html=True)
+        with c3: st.markdown(f"<div class='stat-card beta-card'><div class='stat-label'>⚡ Beta (Vol)</div><div class='stat-value beta-val'>{beta:.2f}</div></div>", unsafe_allow_html=True)
         with c4: 
             div_show = f"{div_yield*100:.2f}%" if div_yield else "-"
-            st.markdown(f"""
-            <div class="stat-card div-card">
-                <div class="stat-label">💰 Dividend</div>
-                <div class="stat-value div-val">{div_show}</div>
-            </div>""", unsafe_allow_html=True)
+            st.markdown(f"<div class='stat-card div-card'><div class='stat-label'>💰 Dividend</div><div class='stat-value div-val'>{div_show}</div></div>", unsafe_allow_html=True)
 
-        st.write("") # Spacer
+        st.write("")
 
         tab1, tab2, tab3, tab4 = st.tabs(["📊 กราฟ", "🧱 แนวรับต้าน", "📰 ข่าว", "🧐 กูรู"])
         
         with tab1:
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
-            fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
+            
+            # 🔥 Logic เลือกประเภทกราฟ
+            if "Heikin Ashi" in chart_type:
+                ha_df = calculate_heikin_ashi(df)
+                # ใช้ข้อมูล HA สำหรับวาดแท่งเทียน
+                fig.add_trace(go.Candlestick(x=ha_df.index, open=ha_df['HA_Open'], high=ha_df['HA_High'], low=ha_df['HA_Low'], close=ha_df['HA_Close'], name="Heikin Ashi"), row=1, col=1)
+            else:
+                # ใช้ข้อมูลปกติ
+                fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
+
             if show_ema:
                 fig.add_trace(go.Scatter(x=df.index, y=df['EMA50'], line=dict(color='#2979FF', width=1), name="EMA50"), row=1, col=1)
                 fig.add_trace(go.Scatter(x=df.index, y=df['EMA200'], line=dict(color='#FF9100', width=1), name="EMA200"), row=1, col=1)
@@ -320,6 +321,8 @@ if symbol:
             fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#AA00FF')), row=2, col=1)
             fig.add_hline(y=70, line_dash='dot', line_color='red', row=2, col=1)
             fig.add_hline(y=30, line_dash='dot', line_color='green', row=2, col=1)
+            
+            # ปรับสี Candlestick ให้สวยงาม
             fig.update_layout(height=450, margin=dict(l=0, r=0, t=10, b=10), xaxis_rangeslider_visible=False, template="plotly_dark", dragmode='pan')
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
             
@@ -358,9 +361,9 @@ if symbol:
                     {insight}
                 </div>
                 <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; text-align:center;">
-                    <div style="background:#111; padding:10px; border-radius:8px;"><div style="font-weight:bold; color:#00E676; font-size:1.1rem;">{rec}</div><div style="font-size:0.8rem; color:#aaa;">Consensus</div></div>
-                    <div style="background:#111; padding:10px; border-radius:8px;"><div style="font-weight:bold; font-size:1.1rem;">{target:,.2f}</div><div style="font-size:0.8rem; color:#aaa;">Target Price</div></div>
-                    <div style="background:#111; padding:10px; border-radius:8px;"><div style="font-weight:bold; font-size:1.1rem;">{pe:.2f}</div><div style="font-size:0.8rem; color:#aaa;">P/E Ratio</div></div>
+                    <div class="stat-card"><div class="stat-value" style="color:#00E676">{rec}</div><div class="stat-label">Consensus</div></div>
+                    <div class="stat-card"><div class="stat-value">{target:,.2f}</div><div class="stat-label">Target Price</div></div>
+                    <div class="stat-card"><div class="stat-value">{pe:.2f}</div><div class="stat-label">P/E Ratio</div></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
