@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from newspaper import Article
 import nltk
 
-# Config NLTK สำหรับตัดคำ
+# Config NLTK
 try: nltk.data.find('tokenizers/punkt')
 except LookupError: nltk.download('punkt')
 
@@ -23,12 +23,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# CSS Styling (Mobile First)
+# CSS Styling (Mobile First & Readable News)
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem; padding-bottom: 5rem; }
         
-        /* ช่องค้นหาใหญ่ */
+        /* Input & Button */
         div[data-testid="stTextInput"] input {
             font-size: 20px !important; height: 50px !important;
             border-radius: 12px !important; background-color: #222 !important;
@@ -43,15 +43,20 @@ st.markdown("""
         /* AI Signal Box */
         .ai-box {
             padding: 20px; border-radius: 15px; text-align: center;
-            margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            border: 2px solid;
+            margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border: 2px solid;
         }
         .ai-title { font-size: 1.2rem; margin-bottom: 5px; opacity: 0.9; }
         .ai-signal { font-size: 2.5rem; font-weight: bold; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
         .ai-reason { font-size: 1rem; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
         
-        /* News Card style inside Expander */
-        .news-content { font-size: 1rem; line-height: 1.6; color: #e0e0e0; margin-bottom: 10px; }
+        /* News Content Style */
+        .news-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; line-height: 1.4; }
+        .news-content { 
+            font-size: 1.05rem; line-height: 1.7; color: #e0e0e0; 
+            text-align: justify; margin-bottom: 15px; 
+            background: #1a1a1a; padding: 15px; border-radius: 10px;
+        }
+        .news-meta { font-size: 0.9rem; color: #888; margin-bottom: 5px; font-style: italic; }
         
         /* Tabs */
         button[data-baseweb="tab"] { font-size: 1.1rem !important; padding: 15px !important; flex: 1; }
@@ -72,48 +77,26 @@ def get_data(symbol, period, interval):
         return df
     except: return pd.DataFrame()
 
-# --- 🧠 AI LOGIC (สมองของบอท) ---
 def analyze_ai_signal(df):
-    """วิเคราะห์สัญญาณซื้อขายจาก EMA และ RSI"""
     close = df['Close'].iloc[-1]
     ema50 = df['Close'].ewm(span=50).mean().iloc[-1]
     ema200 = df['Close'].ewm(span=200).mean().iloc[-1]
     rsi = df['RSI'].iloc[-1]
     
-    signal = "WAIT"
-    text = "🟡 รอจังหวะ (Wait)"
-    color = "#FFD600" # Yellow
-    reason = "ตลาดยังไม่มีทิศทางที่ชัดเจน หรือราคายังอยู่กลางๆ"
-
-    # Logic การตัดสินใจ
-    if close > ema200: # เทรนด์ขาขึ้น
+    signal, text, color, reason = "WAIT", "🟡 รอจังหวะ (Wait)", "#FFD600", "ตลาดยังไม่มีทิศทางที่ชัดเจน"
+    
+    if close > ema200:
         if rsi < 30:
-            signal = "BUY"
-            text = "🟢 เข้าซื้อ (Strong Buy)"
-            color = "#00E676"
-            reason = "ราคาเป็นขาขึ้นและมีการย่อตัวแรง (Oversold) เป็นจังหวะช้อนที่ดี!"
+            text, color, reason = "🟢 เข้าซื้อ (Strong Buy)", "#00E676", "ราคาเป็นขาขึ้นและย่อตัวแรง (Oversold)"
         elif rsi < 50 and close > ema50:
-            signal = "BUY"
-            text = "🟢 ทยอยสะสม (Buy)"
-            color = "#66BB6A"
-            reason = "ราคายืนเหนือเส้นค่าเฉลี่ย และมีโมเมนตัมไปต่อ"
+            text, color, reason = "🟢 ทยอยสะสม (Buy)", "#66BB6A", "ราคายืนเหนือเส้นค่าเฉลี่ย โมเมนตัมดี"
         elif rsi > 70:
-            signal = "CAUTION"
-            text = "🔴 ระวังแรงเทขาย (Overbought)"
-            color = "#FF1744"
-            reason = "ราคาขึ้นแรงเกินไป (RSI > 70) อาจมีการพักตัวเร็วๆ นี้ อย่าเพิ่งไล่ราคา"
-            
-    else: # เทรนด์ขาลง
+            text, color, reason = "🔴 ระวังแรงเทขาย", "#FF1744", "ราคา Overbought สูงเกินไป อาจพักตัว"
+    else:
         if rsi > 70:
-            signal = "SELL"
-            text = "🔴 ขาย/Short (Strong Sell)"
-            color = "#D50000"
-            reason = "เทรนด์ขาลงและราคาดีดตัวขึ้นมาสูงเกินไป (Overbought) มีโอกาสร่วงต่อ"
+            text, color, reason = "🔴 ขาย/Short", "#D50000", "เทรนด์ขาลงและราคาเด้งสูงเกินไป"
         elif close < ema50:
-            signal = "CAUTION"
-            text = "🟠 เลี่ยงการเทรด (Downtrend)"
-            color = "#FF9100"
-            reason = "ราคายังอยู่ใต้เส้นค่าเฉลี่ย 200 วัน (ขาลง) เสี่ยงสูง"
+            text, color, reason = "🟠 เลี่ยงการเทรด", "#FF9100", "ราคายังเป็นขาลง (Under EMA200)"
             
     return text, color, reason, rsi
 
@@ -140,30 +123,40 @@ def analyze_levels(df):
         results.append({'price': c['p'], 'type': c['t'], 'label': label, 'score': c['c']})
     return results
 
+# --- ฟังก์ชันดึงข่าวแบบจัดเต็ม (Max Content) ---
 @st.cache_data(ttl=3600) 
-def fetch_and_translate_news(url, description):
+def fetch_full_news_content(url, description):
     try:
-        # เจาะลิงก์ข่าว
+        # เจาะลิงก์
         article = Article(url)
         article.download()
         article.parse()
         content = article.text
         
-        # ถ้าเจาะไม่ได้ ใช้ Description แทน
+        # ถ้าไม่มีเนื้อหา ใช้ Description
         if len(content) < 100: 
             content = BeautifulSoup(description, "html.parser").get_text()
         
-        # ตัดข้อความให้พอดี (1000 ตัวอักษร) แล้วแปล
-        summary_en = content[:1000] + ("..." if len(content) > 1000 else "")
-        return GoogleTranslator(source='auto', target='th').translate(summary_en)
-    except:
-        return "ไม่สามารถดึงเนื้อหาข่าวได้ กรุณากดอ่านที่ต้นฉบับ"
+        # เพิ่ม Limit เป็น 4000 ตัวอักษร (ประมาณ 1 หน้า A4)
+        limit = 4000
+        summary_en = content[:limit]
+        
+        # แปลไทย
+        trans = GoogleTranslator(source='auto', target='th').translate(summary_en)
+        
+        if len(content) > limit:
+            trans += "\n\n(เนื้อหาข่าวยังมีต่อ... กดอ่านต้นฉบับเพื่อดูเพิ่มเติม)"
+            
+        return trans
+    except Exception as e:
+        return "ไม่สามารถดึงเนื้อหาได้ หรือ เว็บไซต์ป้องกันการเข้าถึง"
 
 def get_news_feed(query):
     try:
         q = query.replace("-THB", "").replace("-USD", "")
         url = f"https://news.google.com/rss/search?q={q}+when:2d&hl=en-US&gl=US&ceid=US:en"
-        return feedparser.parse(url).entries[:6]
+        # เอาแค่ 3 ข่าวตามที่ขอ
+        return feedparser.parse(url).entries[:3]
     except: return []
 
 # --- 3. UI Layout ---
@@ -182,27 +175,24 @@ with col_btn: search_pressed = st.button("GO")
 symbol = symbol_input.upper().strip()
 
 if symbol:
-    with st.spinner('🤖 AI กำลังวิเคราะห์ข้อมูล...'):
+    with st.spinner('🤖 AI กำลังประมวลผลกราฟและข่าว...'):
         df = get_data(symbol, period, interval)
     
     if df.empty:
         st.warning(f"ไม่พบข้อมูล '{symbol}'")
     else:
-        # Indicators
         df['RSI'] = 100 - (100 / (1 + (df['Close'].diff().clip(lower=0).rolling(14).mean() / df['Close'].diff().clip(upper=0).abs().rolling(14).mean())))
         df['EMA50'] = df['Close'].ewm(span=50).mean()
         df['EMA200'] = df['Close'].ewm(span=200).mean()
         
-        # Data for Display
         price = df['Close'].iloc[-1]
         change = price - df['Close'].iloc[-2]
         pct = (change / df['Close'].iloc[-2]) * 100
         color_p = "#00E676" if change >= 0 else "#FF1744"
         levels = analyze_levels(df)
-        
-        # --- 🤖 ส่วน AI ASSISTANT ---
         ai_text, ai_color, ai_reason, rsi_val = analyze_ai_signal(df)
         
+        # AI BOX
         st.markdown(f"""
         <div class="ai-box" style="background: {ai_color}22; border-color: {ai_color};">
             <div class="ai-title">🤖 AI Assistant Signal</div>
@@ -211,22 +201,16 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
         
-        # Header Info (ราคา)
+        # PRICE INFO
         st.markdown(f"""
         <div style="display:flex; justify-content:space-between; align-items:center; background:#111; padding:15px; border-radius:10px; border:1px solid #333; margin-bottom:20px;">
-            <div>
-                <div style="font-size:1rem; color:#888;">{symbol}</div>
-                <div style="font-size:1.8rem; font-weight:bold; color:{color_p};">{price:,.2f}</div>
-            </div>
-            <div style="text-align:right;">
-                <div style="font-size:1rem; color:{color_p};">{change:+,.2f} ({pct:+.2f}%)</div>
-                <div style="font-size:0.9rem; color:#aaa;">RSI: {rsi_val:.1f}</div>
-            </div>
+            <div><div style="color:#888;">{symbol}</div><div style="font-size:1.8rem; font-weight:bold; color:{color_p};">{price:,.2f}</div></div>
+            <div style="text-align:right;"><div style="color:{color_p};">{change:+,.2f} ({pct:+.2f}%)</div><div style="color:#aaa;">RSI: {rsi_val:.1f}</div></div>
         </div>
         """, unsafe_allow_html=True)
         
         # TABS
-        tab1, tab2, tab3 = st.tabs(["📊 กราฟ", "🧱 แนวรับต้าน", "📰 ข่าวแปลไทย"])
+        tab1, tab2, tab3 = st.tabs(["📊 กราฟ", "🧱 แนวรับต้าน", "📰 เจาะลึก 3 ข่าว"])
         
         with tab1:
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
@@ -253,12 +237,11 @@ if symbol:
             for s in sup: st.markdown(f"<div style='display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid #333;'><span style='color:#aaa;'>{s['label']}</span><span style='color:#00E676; font-weight:bold; font-size:1.1rem;'>{s['price']:,.2f}</span></div>", unsafe_allow_html=True)
 
         with tab3:
-            st.caption("ℹ️ จิ้มที่หัวข้อเพื่ออ่านเนื้อหาข่าวแปลไทย")
+            st.caption("กำลังอ่านเนื้อหาและแปลไทย... (อาจใช้เวลา 5-10 วินาทีต่อข่าวเนื่องจากเนื้อหายาว)")
             news_items = get_news_feed(symbol)
             if not news_items:
                 st.info("ไม่พบข่าวในขณะนี้")
             else:
-                progress_bar = st.progress(0)
                 for i, item in enumerate(news_items):
                     # Sentiment
                     blob = TextBlob(item.title)
@@ -267,20 +250,23 @@ if symbol:
                     elif score < -0.1: icon, color_bar = "🔴", "red"
                     else: icon, color_bar = "⚪", "gray"
 
-                    # Title Translation
+                    # Title Translate
                     try: title_th = GoogleTranslator(source='auto', target='th').translate(item.title)
                     except: title_th = item.title
                     
-                    # --- EXPANDABLE CARD ---
-                    with st.expander(f"{icon} {title_th}"):
-                        st.markdown(f"<div style='border-left: 3px solid {color_bar}; padding-left: 10px; margin-bottom:10px; color:#aaa; font-style:italic;'>{item.title}</div>", unsafe_allow_html=True)
+                    # --- EXPANDABLE FULL CONTENT ---
+                    # เปิดกล่องแรกอัตโนมัติ (expanded=True if i==0 else False)
+                    with st.expander(f"{icon} {title_th}", expanded=(i==0)):
+                        st.markdown(f"<div class='news-meta'>Original: {item.title}</div>", unsafe_allow_html=True)
                         
-                        # ดึงเนื้อหา + แปลไทย
-                        with st.spinner("กำลังแปลเนื้อหาข่าว..."):
-                            body_th = fetch_and_translate_news(item.link, item.get('description', ''))
+                        # ดึงเนื้อหาแบบจัดเต็ม (Max Content)
+                        with st.spinner(f"กำลังเจาะเนื้อหาข่าวที่ {i+1}..."):
+                            body_th = fetch_full_news_content(item.link, item.get('description', ''))
                         
-                        st.markdown(f"<div class='news-content'>{body_th}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<a href='{item.link}' target='_blank' style='display:inline-block; padding:8px 16px; background:#2962FF; color:white; text-decoration:none; border-radius:5px;'>🔗 อ่านต้นฉบับ</a>", unsafe_allow_html=True)
-                    
-                    progress_bar.progress((i + 1) / len(news_items))
-                progress_bar.empty()
+                        st.markdown(f"""
+                        <div class='news-content'>
+                            {body_th}
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        st.markdown(f"<a href='{item.link}' target='_blank' style='display:inline-block; width:100%; text-align:center; padding:12px; background:#222; color:#448AFF; text-decoration:none; border-radius:8px; border:1px solid #333;'>🔗 อ่านต้นฉบับเต็มๆ ที่เว็บข่าว</a>", unsafe_allow_html=True)
