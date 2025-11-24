@@ -17,9 +17,9 @@ except LookupError: nltk.download('punkt')
 
 # --- 1. ตั้งค่าหน้าเว็บ ---
 st.set_page_config(
-    page_title="Smart Trader AI : Free News",
+    page_title="Smart Trader AI : Pro",
     layout="wide",
-    page_icon="📰",
+    page_icon="🚀",
     initial_sidebar_state="collapsed"
 )
 
@@ -27,6 +27,8 @@ st.set_page_config(
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem; padding-bottom: 5rem; }
+        
+        /* Input & Button */
         div[data-testid="stTextInput"] input {
             font-size: 20px !important; height: 50px !important;
             border-radius: 12px !important; background-color: #1b1b1b !important;
@@ -35,17 +37,26 @@ st.markdown("""
         div[data-testid="stButton"] button {
             height: 50px !important; font-size: 20px !important;
             border-radius: 12px !important; width: 100% !important;
-            background-color: #00897B !important; color: white !important; /* สีเขียว Investing */
+            background-color: #00C853 !important; color: white !important;
             border: none !important; font-weight: bold !important;
         }
+        
+        /* News UI */
         .source-tag {
-            font-size: 0.8rem; padding: 2px 6px; border-radius: 4px;
-            background: #333; color: #ccc; margin-right: 5px; border: 1px solid #555;
+            font-size: 0.75rem; padding: 2px 8px; border-radius: 4px;
+            background: #444; color: #fff; margin-right: 8px; font-weight: bold;
         }
         .news-content { 
             font-size: 1rem; line-height: 1.7; color: #ddd; 
             text-align: justify; background: #1a1a1a; padding: 15px; border-radius: 10px;
         }
+        
+        /* AI Box */
+        .ai-status {
+            padding: 15px; border-radius: 10px; text-align: center; margin-top: 10px;
+            font-weight: bold; font-size: 1.1rem;
+        }
+
         button[data-baseweb="tab"] { font-size: 1.1rem !important; padding: 15px !important; flex: 1; }
     </style>
 """, unsafe_allow_html=True)
@@ -61,8 +72,8 @@ def get_data(symbol, period, interval):
             df = yf.Ticker(base).history(period=period, interval=interval)
             usd = yf.Ticker("THB=X").history(period="1d")['Close'].iloc[-1]
             if not df.empty: df[['Open','High','Low','Close']] *= usd
-        return df
-    except: return pd.DataFrame()
+        return df, ticker
+    except: return pd.DataFrame(), None
 
 def analyze_ai_signal(df):
     close = df['Close'].iloc[-1]
@@ -70,7 +81,7 @@ def analyze_ai_signal(df):
     rsi = df['RSI'].iloc[-1]
     
     if close > ema200:
-        if rsi < 30: return "🟢 เข้าซื้อ (Strong Buy)", "#00E676", "เทรนด์ขาขึ้น + ย่อตัวหนัก (Oversold)"
+        if rsi < 30: return "🟢 เข้าซื้อ (Strong Buy)", "#00E676", "เทรนด์ขาขึ้น + ย่อตัวหนัก"
         elif rsi < 50: return "🟢 ทยอยสะสม (Buy)", "#66BB6A", "เทรนด์ขาขึ้น ราคายังไม่แพง"
         elif rsi > 70: return "🔴 ระวังแรงเทขาย", "#FF1744", "ราคา Overbought สูงเกินไป"
         else: return "🟡 ถือรันเทรนด์", "#FFD600", "แนวโน้มยังดี ถือต่อได้"
@@ -100,20 +111,17 @@ def analyze_levels(df):
         results.append({'price': c['p'], 'type': c['t'], 'label': label, 'score': c['c']})
     return results
 
-# --- 📰 ADVANCED NEWS FETCHING (เจาะแหล่งฟรี) ---
+# --- 📰 IMPROVED NEWS FETCHING (แก้ปัญหา RKLB ไม่ขึ้น) ---
 
 @st.cache_data(ttl=3600) 
 def fetch_content(url, backup=""):
     try:
-        # User-Agent หลอกว่าเป็นคนเล่นเว็บ
         config = Config()
-        config.browser_user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        config.browser_user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
         config.request_timeout = 10
-        
         article = Article(url, config=config)
         article.download()
         article.parse()
-        
         text = article.text
         if len(text) < 150: return backup if backup else "เนื้อหาถูกจำกัดสิทธิ์ (กรุณาอ่านที่ต้นฉบับ)"
         return text[:4000]
@@ -123,49 +131,51 @@ def translate_text(text):
     try: return GoogleTranslator(source='auto', target='th').translate(text[:4500])
     except: return text
 
-def get_special_news(symbol):
-    """
-    ฟังก์ชันเลือกแหล่งข่าวตามประเภทสินทรัพย์
-    - หุ้นไทย/ทองคำไทย -> Settrade, Intergold, Sanook
-    - หุ้นนอก/Crypto -> Yahoo (Bloomberg Free), Investing.com
-    """
-    q = symbol.replace("-THB", "").replace("-USD", "").upper()
+def get_hybrid_news(ticker, symbol):
     news_list = []
+    seen_links = set()
     
-    # กรณี 1: หุ้นไทย หรือ ทองคำ (ดูจาก .BK หรือชื่อ)
-    if ".BK" in symbol or "THB" in symbol or q in ["SET", "GOLDFUTURES"]:
-        # สั่ง Google ให้ไปหาเฉพาะเว็บไทยที่อ่านฟรี
-        sites = "site:settrade.com OR site:intergold.co.th OR site:kaohoon.com OR site:thunhoon.com OR site:investing.com"
-        rss_url = f"https://news.google.com/rss/search?q={q}+{sites}+when:3d&hl=th&gl=TH&ceid=TH:th"
-    
-    # กรณี 2: หุ้นนอก / Crypto
-    else:
-        # Yahoo Finance + Investing.com (Inter)
-        rss_url = f"https://news.google.com/rss/search?q={q}+site:finance.yahoo.com OR site:investing.com OR site:coindesk.com+when:2d&hl=en-US&gl=US&ceid=US:en"
-
+    # 1. Primary Source: Yahoo Finance API (แม่นยำสุดสำหรับ RKLB, TSLA etc.)
     try:
-        feed = feedparser.parse(rss_url)
-        for item in feed.entries[:5]: # เอา 5 ข่าว
-            # คลีน Summary รอไว้
-            soup = BeautifulSoup(item.get('description', ''), "html.parser")
-            summary = soup.get_text()
-            
-            # ระบุแหล่งที่มาให้สวยงาม
-            source_name = item.source.title if 'source' in item else 'News'
-            if 'yahoo' in item.link: source_name = 'Yahoo Finance'
-            elif 'investing' in item.link: source_name = 'Investing.com'
-            elif 'settrade' in item.link: source_name = 'Settrade'
-            elif 'intergold' in item.link: source_name = 'Intergold'
-
-            news_list.append({
-                'title': item.title,
-                'link': item.link,
-                'summary': summary,
-                'source': source_name
-            })
+        yf_news = ticker.news
+        if yf_news:
+            for item in yf_news[:3]:
+                link = item['link']
+                if link not in seen_links:
+                    news_list.append({
+                        'title': item['title'],
+                        'link': link,
+                        'summary': item.get('title', ''), # Yahoo API มักไม่มี Summary ใช้ Title แทน
+                        'source': 'Yahoo Finance'
+                    })
+                    seen_links.add(link)
     except: pass
-    
-    return news_list
+
+    # 2. Secondary Source: Google News Broad Search (Fallback)
+    # ถ้า Yahoo ได้ข่าวน้อยกว่า 3 ข่าว ให้หาเพิ่มจาก Google
+    if len(news_list) < 3:
+        try:
+            q = symbol.replace("-THB", "").replace("-USD", "").upper()
+            # ค้นหาแบบกว้างขึ้น "RKLB Stock News" ไม่จำกัด site: แล้ว
+            rss_url = f"https://news.google.com/rss/search?q={q}+stock+news+when:3d&hl=en-US&gl=US&ceid=US:en"
+            feed = feedparser.parse(rss_url)
+            
+            for item in feed.entries[:5]:
+                if item.link not in seen_links:
+                    soup = BeautifulSoup(item.get('description', ''), "html.parser")
+                    summary = soup.get_text()
+                    source_name = item.source.title if 'source' in item else 'Google News'
+                    
+                    news_list.append({
+                        'title': item.title,
+                        'link': item.link,
+                        'summary': summary,
+                        'source': source_name
+                    })
+                    seen_links.add(item.link)
+        except: pass
+        
+    return news_list[:5] # ส่งกลับสูงสุด 5 ข่าว
 
 # --- 3. UI Layout ---
 
@@ -175,19 +185,19 @@ with st.sidebar:
     interval = st.selectbox("Interval", ["1d", "1wk"], index=0)
     show_ema = st.checkbox("Show EMA", True)
 
-st.markdown("### 🔎 Smart News Reader (Free Sources)")
+st.markdown("### 🔎 Smart Stock Analyzer")
 col_in, col_btn = st.columns([3.5, 1])
-with col_in: symbol_input = st.text_input("Search", value="BTC-THB", label_visibility="collapsed")
+with col_in: symbol_input = st.text_input("Search", value="RKLB", label_visibility="collapsed")
 with col_btn: search_pressed = st.button("GO")
 
 symbol = symbol_input.upper().strip()
 
 if symbol:
-    with st.spinner('🤖 AI กำลังทำงาน...'):
-        df = get_data(symbol, period, interval)
+    with st.spinner('🚀 กำลังดึงข้อมูลและข่าวล่าสุด...'):
+        df, ticker = get_data(symbol, period, interval)
     
     if df.empty:
-        st.warning(f"ไม่พบข้อมูล '{symbol}'")
+        st.warning(f"ไม่พบข้อมูล '{symbol}' ลองตรวจสอบชื่อหุ้น")
     else:
         df['RSI'] = 100 - (100 / (1 + (df['Close'].diff().clip(lower=0).rolling(14).mean() / df['Close'].diff().clip(upper=0).abs().rolling(14).mean())))
         df['EMA50'] = df['Close'].ewm(span=50).mean()
@@ -201,19 +211,19 @@ if symbol:
         levels = analyze_levels(df)
         ai_text, ai_color, ai_reason = analyze_ai_signal(df)
         
-        # Header & AI
+        # Header Info
         st.markdown(f"""
         <div style="background:#111; padding:20px; border-radius:15px; border-top:5px solid {color_p}; text-align:center; margin-bottom:20px;">
             <div style="font-size:1.2rem; color:#aaa;">{symbol}</div>
             <div style="font-size:3rem; font-weight:bold; color:{color_p};">{price:,.2f}</div>
             <div style="font-size:1.1rem; color:{color_p};">{change:+,.2f} ({pct:+.2f}%)</div>
-            <div style="margin-top:10px; background:{ai_color}22; color:{ai_color}; padding:8px; border-radius:8px;">
-                <b>🤖 AI Signal:</b> {ai_text} <br> <span style="font-size:0.9rem; opacity:0.8;">{ai_reason}</span>
+            <div class="ai-status" style="background:{ai_color}22; color:{ai_color}; border:1px solid {ai_color};">
+                🤖 AI: {ai_text} <br> <span style="font-size:0.9rem; font-weight:normal;">{ai_reason}</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        tab1, tab2, tab3 = st.tabs(["📊 กราฟ", "🧱 แนวรับต้าน", "📰 ข่าว (แหล่งฟรี)"])
+        tab1, tab2, tab3 = st.tabs(["📊 กราฟ", "🧱 แนวรับต้าน", "📰 ข่าวล่าสุด"])
         
         with tab1:
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
@@ -243,38 +253,29 @@ if symbol:
                 for s in sup: st.markdown(f"<div style='border-bottom:1px solid #333; padding:10px; display:flex; justify-content:space-between;'><span style='color:#aaa'>{s['label']}</span><span style='color:#00E676; font-weight:bold;'>{s['price']:,.2f}</span></div>", unsafe_allow_html=True)
 
         with tab3:
-            st.caption(f"ดึงข่าวจากแหล่งฟรีสำหรับ {symbol} (Yahoo/Investing/Settrade/Intergold)")
-            news_items = get_special_news(symbol)
+            st.caption(f"รวมข่าวจาก Yahoo Finance และ Google News สำหรับ {symbol}")
+            # ใช้ฟังก์ชันใหม่ Hybrid News
+            news_items = get_hybrid_news(ticker, symbol)
             
             if not news_items:
-                st.info("ไม่พบข่าวล่าสุดจากแหล่งที่ระบุ")
+                st.info("ไม่พบข่าวในขณะนี้ (อาจเป็นหุ้นเล็กหรือไม่มีความเคลื่อนไหว)")
             else:
                 for i, item in enumerate(news_items):
-                    # แปลหัวข้อ
-                    if any(x in item['source'] for x in ['Settrade', 'Intergold', 'Kaohoon']):
-                        # ถ้าเป็นเว็บไทยอยู่แล้ว ไม่ต้องแปล
-                        title_show = item['title']
-                        is_thai_source = True
-                    else:
-                        title_show = translate_text(item['title'])
-                        is_thai_source = False
-                    
+                    # Sentiment
                     blob = TextBlob(item['title'])
                     score = blob.sentiment.polarity
                     icon = "🟢" if score > 0.1 else "🔴" if score < -0.1 else "⚪"
                     
-                    with st.expander(f"{icon} {title_show}", expanded=(i==0)):
-                        st.markdown(f"<div><span class='source-tag'>{item['source']}</span> <span style='color:#888; font-size:0.9rem;'>{item['title']}</span></div>", unsafe_allow_html=True)
+                    # Translate Title
+                    try: title_th = translate_text(item['title'])
+                    except: title_th = item['title']
+                    
+                    with st.expander(f"{icon} {title_th}", expanded=(i==0)):
+                        st.markdown(f"<div><span class='source-tag'>{item['source']}</span> <span style='color:#888; font-size:0.85rem;'>Original: {item['title']}</span></div>", unsafe_allow_html=True)
                         
-                        with st.spinner("กำลังโหลดเนื้อหา..."):
-                            # เจาะเนื้อหา
+                        with st.spinner("กำลังเจาะเนื้อหา..."):
                             body_raw = fetch_content(item['link'], backup=item['summary'])
-                            
-                            # ถ้าเป็นเว็บไทย แสดงเลย ถ้าเว็บนอก แปลก่อน
-                            if is_thai_source:
-                                body_show = body_raw
-                            else:
-                                body_show = translate_text(body_raw)
+                            body_th = translate_text(body_raw)
                         
-                        st.markdown(f"<div class='news-content'>{body_show}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<a href='{item['link']}' target='_blank' style='display:inline-block; width:100%; text-align:center; padding:10px; background:#00897B; color:white; border-radius:8px; text-decoration:none; margin-top:10px;'>🔗 อ่านต้นฉบับ ({item['source']})</a>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='news-content'>{body_th}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{item['link']}' target='_blank' style='display:inline-block; width:100%; text-align:center; padding:10px; background:#444; color:white; border-radius:8px; text-decoration:none; margin-top:10px;'>🔗 อ่านต้นฉบับ</a>", unsafe_allow_html=True)
