@@ -52,23 +52,38 @@ st.markdown("""
         /* --- Sentiment Analysis Cards (High Contrast) --- */
         .sentiment-card {
             padding: 20px; border-radius: 15px; margin-bottom: 20px;
-            background: #111; /* Darker background for contrast */
+            background: #111;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             transition: transform 0.2s;
         }
         .sentiment-card:hover { transform: scale(1.01); }
         
-        /* Positive */
-        .card-pos { border-left: 6px solid #00E676; border-top: 1px solid rgba(0, 230, 118, 0.3); border-right: 1px solid rgba(0, 230, 118, 0.3); border-bottom: 1px solid rgba(0, 230, 118, 0.3); }
-        .badge-pos { background: #00E676; color: #000; padding: 6px 12px; border-radius: 20px; font-weight: 900; box-shadow: 0 0 10px rgba(0, 230, 118, 0.6); }
+        /* Sentiment News List Colors */
+        .card-pos { border-left: 6px solid #00E676; border-top: 1px solid rgba(0, 230, 118, 0.3); }
+        .badge-pos { background: #00E676; color: #000; padding: 6px 12px; border-radius: 20px; font-weight: 900; }
         
-        /* Negative */
-        .card-neg { border-left: 6px solid #FF1744; border-top: 1px solid rgba(255, 23, 68, 0.3); border-right: 1px solid rgba(255, 23, 68, 0.3); border-bottom: 1px solid rgba(255, 23, 68, 0.3); }
-        .badge-neg { background: #FF1744; color: #fff; padding: 6px 12px; border-radius: 20px; font-weight: 900; box-shadow: 0 0 10px rgba(255, 23, 68, 0.6); }
+        .card-neg { border-left: 6px solid #FF1744; border-top: 1px solid rgba(255, 23, 68, 0.3); }
+        .badge-neg { background: #FF1744; color: #fff; padding: 6px 12px; border-radius: 20px; font-weight: 900; }
         
-        /* Neutral */
-        .card-neu { border-left: 6px solid #2979FF; border-top: 1px solid rgba(41, 121, 255, 0.3); border-right: 1px solid rgba(41, 121, 255, 0.3); border-bottom: 1px solid rgba(41, 121, 255, 0.3); }
-        .badge-neu { background: #2979FF; color: #fff; padding: 6px 12px; border-radius: 20px; font-weight: 900; box-shadow: 0 0 10px rgba(41, 121, 255, 0.6); }
+        .card-neu { border-left: 6px solid #FFD600; border-top: 1px solid rgba(255, 214, 0, 0.3); }
+        .badge-neu { background: #FFD600; color: #000; padding: 6px 12px; border-radius: 20px; font-weight: 900; }
+
+        /* --- Sentiment Header Boxes (New) --- */
+        .sent-box { text-align: center; padding: 15px; border-radius: 12px; border: 1px solid #333; margin-bottom: 20px; }
+        .sent-box-val { font-size: 2.5rem; font-weight: bold; margin: 0; }
+        .sent-box-lbl { font-size: 1rem; opacity: 0.8; }
+        
+        .sb-pos { background: rgba(0, 230, 118, 0.15); border-color: #00E676; color: #00E676; }
+        .sb-neg { background: rgba(255, 23, 68, 0.15); border-color: #FF1744; color: #FF1744; }
+        .sb-neu { background: rgba(255, 214, 0, 0.15); border-color: #FFD600; color: #FFD600; }
+
+        /* --- Fundamental Cards (New) --- */
+        .fund-card {
+            background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.1); height: 100%;
+        }
+        .fund-val { font-size: 1.8rem; font-weight: bold; color: #fff; margin-top: 5px; }
+        .fund-lbl { font-size: 0.9rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
 
         /* Trade Setup Cards */
         .setup-box {
@@ -249,7 +264,7 @@ def analyze_sentiment_advanced(text, title):
             cat, css_cls, badge_cls, icon = "Neutral", "card-neu", "badge-neu", "⚖️"
             impact = "ทรงตัว: ตลาดยังรอความชัดเจน (Wait & See)"
             
-        return {'title': title_th, 'summary': summary_th, 'cat': cat, 'css': css_cls, 'badge': badge_cls, 'icon': icon, 'impact': impact, 'link': item['link'], 'source': item['source']}
+        return {'title': title_th, 'summary': summary_th, 'cat': cat, 'css': css_cls, 'badge': badge_cls, 'icon': icon, 'impact': impact, 'link': None, 'source': None}
     except: return None
 
 # --- 3. Sidebar ---
@@ -315,7 +330,7 @@ if symbol:
             </div>
         """, unsafe_allow_html=True)
         
-        # Tabs (REPLACED Tab 3)
+        # Tabs
         t1, t2, t3, t4, t5 = st.tabs(["📈 Smart Chart", "🛡️ S/R Levels", "🎯 Smart Trade Setup", "📊 Fundamentals", "🧠 AI Sentiment"])
         
         with t1:
@@ -357,7 +372,6 @@ if symbol:
                     tag = "sr-strong" if s['strength']=="Strong" else "sr-psy" if s['strength']=="Psychological" else "sr-weak"
                     st.markdown(f"<div style='border-bottom:1px solid #333; padding:10px; display:flex; justify-content:space-between;'><span style='font-family:monospace; font-size:1.1rem;'>{s['price']:,.2f}</span><span class='sr-tag {tag}'>{s['desc']}</span></div>", unsafe_allow_html=True)
 
-        # --- TAB 3: SMART TRADE SETUP (NEW) ---
         with t3:
             st.markdown("<div class='section-header'>🎯 Smart Trade Setup (AI Plan)</div>", unsafe_allow_html=True)
             if setup:
@@ -377,21 +391,32 @@ if symbol:
                     st.markdown(f"<div class='setup-box'><div class='setup-label'>🔴 STOP LOSS</div><div class='setup-val' style='color:#FF1744'>{setup['sl']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Risk Based on ATR ({setup['atr']:,.2f})</div></div>", unsafe_allow_html=True)
                 with c_tp:
                     st.markdown(f"<div class='setup-box'><div class='setup-label'>🟢 TAKE PROFIT</div><div class='setup-val' style='color:#00E676'>{setup['tp']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Reward Ratio 1:1.5+</div></div>", unsafe_allow_html=True)
-                
-                st.info("⚠️ **คำเตือน:** แผนการเทรดนี้คำนวณจากความผันผวน (ATR) และเทรนด์ (EMA) โดยอัตโนมัติ ไม่ใช่คำแนะนำทางการเงิน ผู้ลงทุนควรบริหารความเสี่ยงด้วยตนเอง")
             else:
                 st.warning("ข้อมูลไม่เพียงพอสำหรับการคำนวณแผนการเทรด")
 
+        # --- TAB 4: FUNDAMENTALS (Colorful Cards) ---
         with t4:
             info = ticker.info
-            st.markdown("<div class='section-header'>📊 Fundamentals</div>", unsafe_allow_html=True)
+            st.markdown("<div class='section-header'>📊 Fundamentals Analysis</div>", unsafe_allow_html=True)
+            
             c1, c2, c3, c4 = st.columns(4)
-            with c1: st.metric("Market Cap", f"{info.get('marketCap',0):,}")
-            with c2: st.metric("PE Ratio", f"{info.get('trailingPE',0):.2f}")
-            with c3: st.metric("52W High", f"{info.get('fiftyTwoWeekHigh',0):,.2f}")
-            with c4: st.metric("52W Low", f"{info.get('fiftyTwoWeekLow',0):,.2f}")
+            with c1:
+                st.markdown(f"""<div class='fund-card' style='border-top: 3px solid #2979FF;'>
+                <div class='fund-lbl'>Market Cap</div><div class='fund-val' style='color:#2979FF'>{info.get('marketCap',0):,}</div></div>""", unsafe_allow_html=True)
+            with c2:
+                st.markdown(f"""<div class='fund-card' style='border-top: 3px solid #AB47BC;'>
+                <div class='fund-lbl'>P/E Ratio</div><div class='fund-val' style='color:#AB47BC'>{info.get('trailingPE',0):.2f}</div></div>""", unsafe_allow_html=True)
+            with c3:
+                st.markdown(f"""<div class='fund-card' style='border-top: 3px solid #00E676;'>
+                <div class='fund-lbl'>52 Week High</div><div class='fund-val' style='color:#00E676'>{info.get('fiftyTwoWeekHigh',0):,.2f}</div></div>""", unsafe_allow_html=True)
+            with c4:
+                st.markdown(f"""<div class='fund-card' style='border-top: 3px solid #FF1744;'>
+                <div class='fund-lbl'>52 Week Low</div><div class='fund-val' style='color:#FF1744'>{info.get('fiftyTwoWeekLow',0):,.2f}</div></div>""", unsafe_allow_html=True)
+            
+            st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+            st.info(f"ℹ️ **Business Summary:** {info.get('longBusinessSummary', 'No description available.')[:600]}...")
 
-        # --- TAB 5: SENTIMENT (IMPROVED UI) ---
+        # --- TAB 5: SENTIMENT (Improved Header) ---
         with t5:
             st.markdown("<div class='section-header'>🧠 AI Sentiment Analysis (Thai)</div>", unsafe_allow_html=True)
             
@@ -415,10 +440,26 @@ if symbol:
                         else: neu+=1
                 bar.empty()
                 
+                # --- NEW COLORED HEADER ---
                 c1, c2, c3 = st.columns(3)
-                c1.metric("Positive News", f"{pos}", delta="Bullish", delta_color="normal")
-                c2.metric("Negative News", f"{neg}", delta="-Bearish", delta_color="inverse")
-                c3.metric("Neutral News", f"{neu}", delta="Wait", delta_color="off")
+                with c1:
+                    st.markdown(f"""
+                    <div class="sent-box sb-pos">
+                        <div class="sent-box-val">{pos}</div>
+                        <div class="sent-box-lbl">Positive News (ข่าวดี)</div>
+                    </div>""", unsafe_allow_html=True)
+                with c2:
+                    st.markdown(f"""
+                    <div class="sent-box sb-neg">
+                        <div class="sent-box-val">{neg}</div>
+                        <div class="sent-box-lbl">Negative News (ข่าวร้าย)</div>
+                    </div>""", unsafe_allow_html=True)
+                with c3:
+                    st.markdown(f"""
+                    <div class="sent-box sb-neu">
+                        <div class="sent-box-val">{neu}</div>
+                        <div class="sent-box-lbl">Neutral News (ทั่วไป)</div>
+                    </div>""", unsafe_allow_html=True)
                 
                 st.markdown("---")
                 
