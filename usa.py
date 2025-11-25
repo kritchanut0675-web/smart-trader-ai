@@ -34,7 +34,7 @@ if 'symbol' not in st.session_state:
 def set_symbol(sym):
     st.session_state.symbol = sym
 
-# --- 2. Ultra Black CSS (Enhanced S/R & News) ---
+# --- 2. Ultra Black CSS (Big & Clear) ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap');
@@ -58,43 +58,33 @@ st.markdown("""
             padding: 35px; margin-bottom: 30px; box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
         }
         
-        /* --- 🛡️ BIG S/R TABLE STYLES --- */
-        .sr-container {
-            display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;
-        }
-        .sr-row {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 15px 25px; border-radius: 15px; font-size: 1.5rem; font-weight: bold;
-        }
+        /* BIG S/R TABLE */
+        .sr-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .sr-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; border-radius: 15px; font-size: 1.5rem; font-weight: bold; }
         .res-row { background: linear-gradient(90deg, rgba(255, 23, 68, 0.1), rgba(0,0,0,0)); border-left: 8px solid #FF1744; color: #FF1744; }
         .sup-row { background: linear-gradient(90deg, rgba(0, 230, 118, 0.1), rgba(0,0,0,0)); border-left: 8px solid #00E676; color: #00E676; }
         .curr-row { background: #222; border: 1px solid #555; color: #fff; justify-content: center; font-size: 1.8rem; text-shadow: 0 0 10px white; }
-        .sr-label { font-size: 1rem; opacity: 0.7; letter-spacing: 2px; text-transform: uppercase; }
 
-        /* --- 📰 NEWS CARD STYLES --- */
-        .news-card {
-            padding: 20px; margin-bottom: 15px; background: #111; border-radius: 15px;
-            border-left: 6px solid #888; transition: transform 0.2s;
-        }
+        /* STATS BOX */
+        .stat-box { background: #0a0a0a; border-radius: 20px; padding: 25px; text-align: center; border: 1px solid #333; margin-bottom: 15px; }
+        .stat-label { color: #888; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px; }
+        .stat-value { font-size: 2.5rem; font-weight: 800; color: #fff; }
+
+        /* NEWS CARD */
+        .news-card { padding: 20px; margin-bottom: 15px; background: #111; border-radius: 15px; border-left: 6px solid #888; transition: transform 0.2s; }
         .news-card:hover { transform: scale(1.01); background: #161616; }
-        .nc-pos { border-left-color: #00E676; box-shadow: -5px 0 15px -5px rgba(0, 230, 118, 0.2); }
-        .nc-neg { border-left-color: #FF1744; box-shadow: -5px 0 15px -5px rgba(255, 23, 68, 0.2); }
+        .nc-pos { border-left-color: #00E676; }
+        .nc-neg { border-left-color: #FF1744; }
         .nc-neu { border-left-color: #FFD600; }
-        .news-sentiment { font-size: 0.9rem; font-weight: bold; margin-bottom: 5px; display: inline-block; padding: 2px 8px; border-radius: 5px; color:#000; }
-        .ns-pos { background: #00E676; }
-        .ns-neg { background: #FF1744; color: #fff !important; }
-        .ns-neu { background: #FFD600; }
 
         /* AI VERDICT CARD */
         .ai-card {
-            background: linear-gradient(145deg, #111, #0d0d0d);
-            border: 2px solid #00E5FF;
-            border-radius: 20px; padding: 30px; position: relative;
-            box-shadow: 0 0 30px rgba(0, 229, 255, 0.1);
+            background: linear-gradient(145deg, #111, #0d0d0d); border: 2px solid #00E5FF;
+            border-radius: 20px; padding: 30px; position: relative; box-shadow: 0 0 30px rgba(0, 229, 255, 0.1);
         }
         .ai-score-circle {
-            width: 100px; height: 100px; border-radius: 50%;
-            border: 5px solid #00E5FF; display: flex; align-items: center; justify-content: center;
+            width: 100px; height: 100px; border-radius: 50%; border: 5px solid #00E5FF;
+            display: flex; align-items: center; justify-content: center;
             font-size: 2.5rem; font-weight: bold; color: #00E5FF; margin: 0 auto 20px auto;
         }
 
@@ -105,20 +95,20 @@ st.markdown("""
         }
         div.stButton > button:hover { background: #00E5FF; color: #000 !important; font-weight: bold; }
         
-        /* TABS */
         button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 600 !important; }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 3. Data & Analysis Functions ---
 
+# --- FIX: Cache only DataFrame (Serializable) ---
 @st.cache_data(ttl=300)
-def get_data_full(symbol, period, interval):
+def get_market_data(symbol, period, interval):
     try:
         ticker = yf.Ticker(symbol)
         df = ticker.history(period=period, interval=interval)
-        return df, ticker
-    except: return pd.DataFrame(), None
+        return df
+    except: return pd.DataFrame()
 
 def calculate_heikin_ashi(df):
     ha_df = df.copy()
@@ -169,40 +159,33 @@ def calculate_technical_setup(df):
         }
     except: return None
 
-# --- NEW: Improved S/R Level Identification ---
 def identify_sr_levels(df):
     levels = []
     try:
-        # Simple local min/max logic
         window = 5
         for i in range(window, len(df) - window):
             if df['Low'][i] == df['Low'][i-window:i+window+1].min():
                 levels.append({'price': df['Low'][i], 'type': 'Support'})
             elif df['High'][i] == df['High'][i-window:i+window+1].max():
                 levels.append({'price': df['High'][i], 'type': 'Resistance'})
-        
-        # Sort and filter close levels
         levels.sort(key=lambda x: x['price'])
         filtered = []
         if levels:
             curr = levels[0]
             for next_lvl in levels[1:]:
-                if (next_lvl['price'] - curr['price']) / curr['price'] > 0.02: # 2% difference
+                if (next_lvl['price'] - curr['price']) / curr['price'] > 0.02:
                     filtered.append(curr)
                     curr = next_lvl
             filtered.append(curr)
-            
         return filtered
     except: return []
 
-# --- NEW: AI News Analysis (Restored & Improved) ---
+# --- AI News Analysis (Thai) ---
 @st.cache_data(ttl=3600)
 def get_ai_analyzed_news_thai(symbol):
     news_list = []
     clean_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
-    
     translator = GoogleTranslator(source='auto', target='th') if HAS_TRANSLATOR else None
-
     try:
         q = urllib.parse.quote(f"site:bloomberg.com {clean_sym} market")
         rss_url = f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
@@ -214,69 +197,46 @@ def get_ai_analyzed_news_thai(symbol):
             feed = feedparser.parse(rss_url)
 
         for item in feed.entries[:5]:
-            # Sentiment Analysis
             blob = TextBlob(item.title)
             sentiment_score = blob.sentiment.polarity
             
             if sentiment_score > 0.05:
                 sentiment = "ข่าวดี (Positive)"
                 color_class = "nc-pos"
-                tag_class = "ns-pos"
                 icon = "🚀"
             elif sentiment_score < -0.05:
                 sentiment = "ข่าวร้าย (Negative)"
                 color_class = "nc-neg"
-                tag_class = "ns-neg"
                 icon = "🔻"
             else:
                 sentiment = "ทั่วไป (Neutral)"
                 color_class = "nc-neu"
-                tag_class = "ns-neu"
                 icon = "⚖️"
 
-            # Translate
             title_th = item.title
             if translator:
                 try: title_th = translator.translate(item.title)
                 except: pass
 
             news_list.append({
-                'title_th': title_th,
-                'link': item.link,
-                'sentiment': sentiment,
-                'class': color_class,
-                'tag': tag_class,
-                'icon': icon,
-                'score': sentiment_score
+                'title_th': title_th, 'link': item.link, 'sentiment': sentiment,
+                'class': color_class, 'icon': icon, 'score': sentiment_score
             })
     except: pass
     return news_list
 
-# --- Guru & Verdict Logic ---
-def get_guru_opinion(ticker, current_price):
-    try:
-        info = ticker.info
-        if 'targetMeanPrice' not in info: return None
-        return {
-            'target_mean': info.get('targetMeanPrice'),
-            'target_high': info.get('targetHighPrice'),
-            'target_low': info.get('targetLowPrice'),
-            'rec': info.get('recommendationKey', 'none').upper(),
-            'count': info.get('numberOfAnalystOpinions', 0)
-        }
-    except: return None
-
-def generate_ai_analysis(df, setup, guru_data, news_list):
+# --- AI Verdict Logic (Technicals + News Only) ---
+def generate_ai_analysis(df, setup, news_list):
     analysis_text = ""
     score = 50
     
     # Technical
     if setup['trend'] == "Uptrend (ขาขึ้น)":
         analysis_text += "📈 **ด้านเทคนิค:** กราฟยังคงรักษาทรงขาขึ้นได้อย่างแข็งแกร่ง ราคายืนเหนือเส้น EMA "
-        score += 20
+        score += 25
     elif setup['trend'] == "Downtrend (ขาลง)":
         analysis_text += "📉 **ด้านเทคนิค:** กราฟอยู่ในแนวโน้มขาลงชัดเจน ระวังแรงขายกดดัน "
-        score -= 20
+        score -= 25
     else:
         analysis_text += "⚖️ **ด้านเทคนิค:** กราฟแกว่งตัวออกข้าง (Sideways) รอเลือกทาง "
 
@@ -287,10 +247,10 @@ def generate_ai_analysis(df, setup, guru_data, news_list):
     news_score = sum([n['score'] for n in news_list]) if news_list else 0
     if news_score > 0.2:
         analysis_text += "\n\n📰 **กระแสข่าว:** ภาพรวมข่าวสารเป็นบวก สนับสนุนราคา"
-        score += 10
+        score += 15
     elif news_score < -0.2:
         analysis_text += "\n\n📰 **กระแสข่าว:** มีข่าวเชิงลบกดดันตลาด ควรระวัง"
-        score -= 10
+        score -= 15
 
     score = max(0, min(100, score))
     if score >= 75: verdict = "STRONG BUY"
@@ -303,8 +263,8 @@ def generate_ai_analysis(df, setup, guru_data, news_list):
 
 # --- 4. Sidebar ---
 with st.sidebar:
-    st.markdown("<h1 style='text-align: center; color: #00E5FF;'>💎 ULTRA 7</h1>", unsafe_allow_html=True)
-    st.caption("AI & Guru Edition")
+    st.markdown("<h1 style='text-align: center; color: #00E5FF;'>💎 ULTRA</h1>", unsafe_allow_html=True)
+    st.caption("AI Edition (No Guru)")
     st.markdown("---")
     
     c1, c2 = st.columns(2)
@@ -335,7 +295,7 @@ symbol = st.session_state.symbol.upper()
 
 if symbol:
     with st.spinner('💎 AI กำลังประมวลผลข้อมูล...'):
-        df, ticker = get_data_full(symbol, period, "1d")
+        df = get_market_data(symbol, period, "1d")
         
     if df.empty:
         st.error(f"❌ ไม่พบข้อมูล '{symbol}'")
@@ -346,11 +306,11 @@ if symbol:
         pct = (change / df['Close'].iloc[-2]) * 100
         
         setup = calculate_technical_setup(df)
-        guru_data = get_guru_opinion(ticker, curr_price)
         news_list = get_ai_analyzed_news_thai(symbol)
         sr_levels = identify_sr_levels(df)
         
-        ai_text, ai_score, ai_verdict = generate_ai_analysis(df, setup, guru_data, news_list)
+        # Verdict calculation (without Guru)
+        ai_text, ai_score, ai_verdict = generate_ai_analysis(df, setup, news_list)
 
         # --- HERO HEADER ---
         color_trend = "#00E676" if change >= 0 else "#FF1744"
@@ -365,8 +325,8 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
 
-        # --- 7 TABS ---
-        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 S/R & Setup", "💰 Entry", "🗣️ Guru View", "🤖 AI Verdict"])
+        # --- 6 TABS (Removed Guru Tab) ---
+        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 S/R & Setup", "💰 Entry", "🤖 AI Verdict"])
 
         # Tab 1: Chart
         with tabs[0]:
@@ -391,7 +351,7 @@ if symbol:
             c2.markdown(f"""<div class="stat-box"><div class="stat-label">Low</div><div class="stat-value" style="color:#FF1744;">{df['Low'].min():,.2f}</div></div>""", unsafe_allow_html=True)
             c3.markdown(f"""<div class="stat-box"><div class="stat-label">Vol</div><div class="stat-value" style="color:#E040FB;">{df['Volume'].iloc[-1]/1e6:.1f}M</div></div>""", unsafe_allow_html=True)
 
-        # Tab 3: AI News (Restored!)
+        # Tab 3: AI News (Enhanced)
         with tabs[2]:
             st.markdown("### 📰 AI Sentiment Analysis (วิเคราะห์อารมณ์ข่าว)")
             if news_list:
@@ -399,7 +359,7 @@ if symbol:
                     st.markdown(f"""
                     <div class="news-card {n['class']}">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span class="news-sentiment {n['tag']}">{n['icon']} {n['sentiment']}</span>
+                            <span style="font-size:0.9rem; font-weight:bold; padding:4px 10px; border-radius:10px; background:#fff; color:#000;">{n['icon']} {n['sentiment']}</span>
                         </div>
                         <h4 style="color:#fff; margin:10px 0;">{n['title_th']}</h4>
                         <a href="{n['link']}" target="_blank" style="color:#aaa; font-size:0.9rem;">🔗 อ่านข่าวต้นฉบับ</a>
@@ -407,7 +367,7 @@ if symbol:
                     """, unsafe_allow_html=True)
             else: st.info("ไม่พบข่าวในขณะนี้ หรือ API ถูกจำกัดการเข้าถึง")
 
-        # Tab 4: S/R & Setup (Enhanced!)
+        # Tab 4: S/R & Setup (BIG TABLE)
         with tabs[3]:
             # Big S/R Table
             st.markdown("### 🛡️ Key Levels (แนวรับ-แนวต้าน)")
@@ -436,15 +396,8 @@ if symbol:
             st.markdown(f"""<div style="background:#111; padding:20px; border-left:5px solid #FFD600; margin-bottom:10px; font-size:1.2rem;"><b>Accumulate (30%):</b> {t2:,.2f}</div>""", unsafe_allow_html=True)
             st.markdown(f"""<div style="background:#111; padding:20px; border-left:5px solid #FF1744; font-size:1.2rem;"><b>Sniper Zone (50%):</b> {t3:,.2f}</div>""", unsafe_allow_html=True)
 
-        # Tab 6: Guru
+        # Tab 6: AI Verdict (Restored without Guru)
         with tabs[5]:
-            st.markdown("### 🗣️ Guru Opinions")
-            if guru_data and guru_data['target_mean']:
-                st.markdown(f"""<div class="glass-card" style="text-align:center;"><div style="font-size:3rem; font-weight:bold;">{guru_data['rec']}</div><div>Target: {guru_data['target_mean']:,.2f}</div></div>""", unsafe_allow_html=True)
-            else: st.warning("No Analyst Data for this asset")
-
-        # Tab 7: AI Verdict
-        with tabs[6]:
             st.markdown("### 🤖 AI Market Analysis")
             if ai_score >= 70: score_color = "#00E676"
             elif ai_score <= 30: score_color = "#FF1744"
