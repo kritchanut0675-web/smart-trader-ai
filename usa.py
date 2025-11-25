@@ -97,13 +97,14 @@ st.markdown("""
 
 # --- 3. Data & Analysis Functions ---
 
+# --- FIX: Return ONLY DataFrame (Cacheable) ---
 @st.cache_data(ttl=300)
-def get_data_full(symbol, period, interval):
+def get_market_data(symbol, period, interval):
     try:
         ticker = yf.Ticker(symbol)
         df = ticker.history(period=period, interval=interval)
-        return df, ticker
-    except: return pd.DataFrame(), None
+        return df
+    except: return pd.DataFrame()
 
 def calculate_heikin_ashi(df):
     ha_df = df.copy()
@@ -162,6 +163,9 @@ def get_guru_opinion(ticker, current_price):
     """
     try:
         info = ticker.info
+        # Check if keys exist to prevent errors
+        if 'targetMeanPrice' not in info: return None
+        
         target_mean = info.get('targetMeanPrice')
         target_high = info.get('targetHighPrice')
         target_low = info.get('targetLowPrice')
@@ -292,7 +296,11 @@ symbol = st.session_state.symbol.upper()
 
 if symbol:
     with st.spinner('💎 AI กำลังรวบรวมข้อมูลจากกูรูและตลาด...'):
-        df, ticker = get_data_full(symbol, period, "1d")
+        # --- FIX: Retrieve only DF from Cache ---
+        df = get_market_data(symbol, period, "1d")
+        
+        # --- FIX: Instantiate Ticker object freshly here (Avoids Cache Error) ---
+        ticker = yf.Ticker(symbol)
         
     if df.empty:
         st.error(f"❌ ไม่พบข้อมูล '{symbol}'")
@@ -363,7 +371,7 @@ if symbol:
             st.markdown(f"""<div style="background:#111; padding:15px; border-left:5px solid #FFD600; margin-bottom:10px;"><b>Accumulate:</b> {t2:,.2f}</div>""", unsafe_allow_html=True)
             st.markdown(f"""<div style="background:#111; padding:15px; border-left:5px solid #FF1744;"><b>Sniper Zone:</b> {t3:,.2f}</div>""", unsafe_allow_html=True)
 
-        # --- TAB 6: GURU VIEW (NEW) ---
+        # --- TAB 6: GURU VIEW ---
         with tabs[5]:
             st.markdown("### 🗣️ Guru Opinions (ความเห็นนักวิเคราะห์)")
             
@@ -392,7 +400,7 @@ if symbol:
                 st.warning("⚠️ ไม่พบข้อมูลราคาเป้าหมายจากนักวิเคราะห์ (Analyst Targets) สำหรับสินทรัพย์นี้ หรือเป็นสินทรัพย์ประเภท Crypto/Forex ที่ไม่มีข้อมูล Consensus ในระบบนี้")
                 st.markdown("แนะนำให้ใช้ **Tab 7 (AI Verdict)** เพื่อดูการวิเคราะห์ทางเทคนิคทดแทน")
 
-        # --- TAB 7: AI VERDICT (NEW) ---
+        # --- TAB 7: AI VERDICT ---
         with tabs[6]:
             st.markdown("### 🤖 AI Market Analysis (บทวิเคราะห์อัจฉริยะ)")
             
