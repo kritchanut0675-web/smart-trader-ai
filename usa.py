@@ -183,4 +183,201 @@ def get_news(symbol):
     return news_list
 
 # --- 4. Sidebar ---
-with
+with st.sidebar:
+    st.markdown("<h2 style='text-align: center; color: #00E5FF;'>💎 SMART AI</h2>", unsafe_allow_html=True)
+    st.caption("Premium Edition by KRITCHANUT")
+    st.markdown("---")
+    
+    # เอาปุ่ม BTC-THB, ETH-THB ออกตามสั่ง
+    st.markdown("### 🌎 Global Assets")
+    c1, c2 = st.columns(2)
+    if c1.button("BTC-USD"): set_symbol("BTC-USD")
+    if c2.button("ETH-USD"): set_symbol("ETH-USD")
+    
+    st.markdown("### 🌟 Popular")
+    c3, c4 = st.columns(2)
+    if c3.button("Gold (XAU)"): set_symbol("GC=F")
+    if c4.button("Oil (WTI)"): set_symbol("CL=F")
+    
+    st.markdown("---")
+    st.markdown("### ⚙️ Settings")
+    chart_type = st.selectbox("Chart Style", ["Candlestick", "Heikin Ashi"])
+    period = st.select_slider("Period", options=["1mo", "3mo", "6mo", "1y", "5y"], value="1y")
+
+# --- 5. Main Content ---
+
+# Header Section
+st.markdown("<h3 style='margin-bottom: 5px;'>🔍 ค้นหาเหรียญ / หุ้น (Premium Search)</h3>", unsafe_allow_html=True)
+
+c_search, c_btn = st.columns([4, 1])
+with c_search:
+    # Input box is styled via CSS to be White with Black text
+    sym_input = st.text_input("ระบุชื่อย่อ (เช่น BTC-USD, AAPL)", value=st.session_state.symbol, label_visibility="collapsed")
+with c_btn:
+    if st.button("วิเคราะห์ ⚡", use_container_width=True):
+        st.session_state.symbol = sym_input
+        st.rerun()
+
+symbol = st.session_state.symbol.upper()
+
+if symbol:
+    with st.spinner('💎 AI กำลังวิเคราะห์ข้อมูลระดับสูง...'):
+        df = get_data(symbol, period, "1d")
+        
+    if df.empty:
+        st.error(f"❌ ไม่พบข้อมูล '{symbol}' กรุณาลองตรวจสอบชื่อย่อใหม่")
+    else:
+        # Calculation
+        curr_price = df['Close'].iloc[-1]
+        prev_price = df['Close'].iloc[-2]
+        change = curr_price - prev_price
+        pct = (change / prev_price) * 100
+        last_date = df.index[-1].strftime('%d-%m-%Y')
+        
+        setup = calculate_trade_setup(df)
+
+        # --- HERO SECTION (Beautiful Header) ---
+        color_trend = "#00E676" if change >= 0 else "#FF1744"
+        arrow = "▲" if change >= 0 else "▼"
+        
+        st.markdown(f"""
+        <div class="glass-card" style="border-top: 5px solid {color_trend}; text-align: center;">
+            <div style="font-size: 1.2rem; color: #aaa; letter-spacing: 2px; text-transform: uppercase;">ASSET ANALYSIS</div>
+            <div style="font-size: 4rem; font-weight: 800; margin: 10px 0; background: -webkit-linear-gradient(45deg, #fff, {color_trend}); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                {symbol}
+            </div>
+            <div style="font-size: 3.5rem; font-weight: bold; color: {color_trend};">
+                {curr_price:,.2f} 
+            </div>
+            <div style="color: #888; margin-bottom: 10px;">Price Date: {last_date}</div>
+            <div class="status-badge {'badge-up' if change >= 0 else 'badge-down'}" style="font-size: 1.2rem;">
+                {arrow} {abs(change):,.2f} ({pct:+.2f}%)
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # --- TABS ---
+        tabs = st.tabs(["📈 Smart Chart", "🎯 AI Setup", "💰 Entry Strategy", "🧠 Sentiment", "📊 Stats"])
+
+        # 1. CHART
+        with tabs[0]:
+            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.75, 0.25])
+            
+            # Choose Chart Type
+            if chart_type == "Heikin Ashi":
+                ha = calculate_heikin_ashi(df)
+                fig.add_trace(go.Candlestick(x=df.index, open=ha['HA_Open'], high=ha['HA_High'], low=ha['HA_Low'], close=ha['HA_Close'], name="HA"), row=1, col=1)
+            else:
+                fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
+            
+            # EMA
+            fig.add_trace(go.Scatter(x=df.index, y=df['Close'].ewm(span=50).mean(), line=dict(color='#2979FF', width=1.5), name='EMA 50'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=df.index, y=df['Close'].ewm(span=200).mean(), line=dict(color='#FF9100', width=1.5), name='EMA 200'), row=1, col=1)
+            
+            # RSI
+            rsi = 100 - (100 / (1 + (df['Close'].diff().where(lambda x: x>0,0).rolling(14).mean() / abs(df['Close'].diff().where(lambda x: x<0,0)).rolling(14).mean())))
+            fig.add_trace(go.Scatter(x=df.index, y=rsi, line=dict(color='#E040FB'), name='RSI'), row=2, col=1)
+            fig.add_hline(y=70, line_color='red', line_dash='dot', row=2, col=1)
+            fig.add_hline(y=30, line_color='green', line_dash='dot', row=2, col=1)
+            
+            fig.update_layout(height=600, template='plotly_dark', margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig, use_container_width=True)
+
+        # 2. SETUP
+        with tabs[1]:
+            if setup:
+                c1, c2 = st.columns([1, 2])
+                with c1:
+                    st.markdown(f"""
+                    <div class="glass-card" style="text-align: center;">
+                        <div style="color: #aaa;">SIGNAL</div>
+                        <div style="font-size: 2rem; font-weight: bold; color: {setup['color']};">{setup['signal']}</div>
+                        <hr style="border-color: #333;">
+                        <div style="color: #aaa;">TREND</div>
+                        <div style="font-size: 1.2rem;">{setup['trend']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with c2:
+                    st.markdown(f"""
+                    <div style="display: flex; gap: 10px; height: 100%;">
+                        <div class="glass-card" style="flex: 1; text-align: center; border: 1px solid #FF1744;">
+                            <div style="color: #FF1744; font-weight: bold;">STOP LOSS</div>
+                            <div style="font-size: 1.8rem;">{setup['sl']:,.2f}</div>
+                        </div>
+                        <div class="glass-card" style="flex: 1; text-align: center; border: 1px solid #00E676;">
+                            <div style="color: #00E676; font-weight: bold;">TAKE PROFIT</div>
+                            <div style="font-size: 1.8rem;">{setup['tp']:,.2f}</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+        # 3. ENTRY STRATEGY
+        with tabs[2]:
+            st.markdown("### 💰 Smart Money Management")
+            
+            # Simple tiered logic based on current price & ATR
+            t1 = curr_price * 0.995 # ย่อเล็กน้อย
+            t2 = curr_price * 0.98  # ย่อลึก
+            t3 = curr_price * 0.95  # จุด Panic
+            
+            st.markdown(f"""
+            <div class="entry-box eb-1">
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:#00E5FF; font-weight:bold; font-size:1.2rem;">🔹 ไม้ที่ 1 : Probe Buy (20%)</span>
+                    <span style="font-weight:bold; font-size:1.2rem;">{t1:,.2f}</span>
+                </div>
+                <small style="color:#aaa;">เข้าซื้อเพื่อทดสอบตลาด หรือเกาะแนวโน้มระยะสั้น</small>
+            </div>
+            
+            <div class="entry-box eb-2">
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:#FFD600; font-weight:bold; font-size:1.2rem;">🔸 ไม้ที่ 2 : Accumulate (30%)</span>
+                    <span style="font-weight:bold; font-size:1.2rem;">{t2:,.2f}</span>
+                </div>
+                <small style="color:#aaa;">จุดเข้าซื้อเพิ่มเมื่อราคาย่อตัวลงมา (Dip Buying)</small>
+            </div>
+            
+            <div class="entry-box eb-3">
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:#FF1744; font-weight:bold; font-size:1.2rem;">🔻 ไม้ที่ 3 : Sniper Zone (50%)</span>
+                    <span style="font-weight:bold; font-size:1.2rem;">{t3:,.2f}</span>
+                </div>
+                <small style="color:#aaa;">จุดซื้อของถูกเมื่อเกิด Panic Sell หรือแนวรับสำคัญมาก</small>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # 4. SENTIMENT
+        with tabs[3]:
+            st.markdown("### 📰 Bloomberg & Global News")
+            news = get_news(symbol)
+            if news:
+                for n in news:
+                    st.markdown(f"""
+                    <div class="glass-card" style="padding: 15px;">
+                        <a href="{n['link']}" target="_blank" style="text-decoration:none; color:#fff;">
+                            <h4 style="margin:0;">{n['title']}</h4>
+                        </a>
+                        <div style="font-size:0.8rem; color:#888; margin-top:5px;">Source: {n['source']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("ไม่พบข่าวสำคัญในขณะนี้")
+
+        # 5. STATS (FIX: ใช้ข้อมูลจาก DF แทน info เพื่อแก้ปัญหา Data unavailable)
+        with tabs[4]:
+            st.markdown("### 📊 Market Statistics")
+            # คำนวณค่าจาก DataFrame ที่มีอยู่แล้ว (มั่นใจว่ามีข้อมูลแน่นอน)
+            high_p = df['High'].max()
+            low_p = df['Low'].min()
+            vol_p = df['Volume'].sum()
+            avg_p = df['Close'].mean()
+
+            c1, c2 = st.columns(2)
+            c3, c4 = st.columns(2)
+            
+            c1.metric(f"Highest ({period})", f"{high_p:,.2f}")
+            c2.metric(f"Lowest ({period})", f"{low_p:,.2f}")
+            c3.metric(f"Avg Price", f"{avg_p:,.2f}")
+            c4.metric(f"Total Volume", f"{vol_p:,.0f}")
+            
+            st.caption(f"หมายเหตุ: ข้อมูลสถิติคคำนวณจากกราฟย้อนหลัง {period}")
