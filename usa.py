@@ -30,61 +30,66 @@ if 'symbol' not in st.session_state:
 def set_symbol(sym):
     st.session_state.symbol = sym
 
-# --- Modern CSS (Glassmorphism UI) ---
+# --- Modern CSS (Neon & Glassmorphism) ---
 st.markdown("""
     <style>
         /* Main Theme */
-        body { background-color: #0E1117; }
-        .stApp { background: radial-gradient(circle at 10% 20%, rgb(0, 0, 0) 0%, rgb(20, 20, 20) 90.2%); }
+        body { background-color: #050505; color: #fff; }
+        .stApp { background: radial-gradient(circle at 10% 20%, #000000 0%, #1a1a1a 90%); }
         
         /* Glassmorphism Cards */
         .glass-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             padding: 24px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
         }
+
+        /* --- Sentiment Analysis Cards (High Contrast) --- */
+        .sentiment-card {
+            padding: 20px; border-radius: 15px; margin-bottom: 20px;
+            background: #111; /* Darker background for contrast */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: transform 0.2s;
+        }
+        .sentiment-card:hover { transform: scale(1.01); }
         
+        /* Positive */
+        .card-pos { border-left: 6px solid #00E676; border-top: 1px solid rgba(0, 230, 118, 0.3); border-right: 1px solid rgba(0, 230, 118, 0.3); border-bottom: 1px solid rgba(0, 230, 118, 0.3); }
+        .badge-pos { background: #00E676; color: #000; padding: 6px 12px; border-radius: 20px; font-weight: 900; box-shadow: 0 0 10px rgba(0, 230, 118, 0.6); }
+        
+        /* Negative */
+        .card-neg { border-left: 6px solid #FF1744; border-top: 1px solid rgba(255, 23, 68, 0.3); border-right: 1px solid rgba(255, 23, 68, 0.3); border-bottom: 1px solid rgba(255, 23, 68, 0.3); }
+        .badge-neg { background: #FF1744; color: #fff; padding: 6px 12px; border-radius: 20px; font-weight: 900; box-shadow: 0 0 10px rgba(255, 23, 68, 0.6); }
+        
+        /* Neutral */
+        .card-neu { border-left: 6px solid #2979FF; border-top: 1px solid rgba(41, 121, 255, 0.3); border-right: 1px solid rgba(41, 121, 255, 0.3); border-bottom: 1px solid rgba(41, 121, 255, 0.3); }
+        .badge-neu { background: #2979FF; color: #fff; padding: 6px 12px; border-radius: 20px; font-weight: 900; box-shadow: 0 0 10px rgba(41, 121, 255, 0.6); }
+
+        /* Trade Setup Cards */
+        .setup-box {
+            background: #1e1e1e; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #333;
+        }
+        .setup-label { color: #888; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+        .setup-val { font-size: 1.8rem; font-weight: bold; margin-top: 5px; }
+
         /* Inputs & Buttons */
         div[data-testid="stTextInput"] input {
             border-radius: 12px !important; background-color: rgba(255,255,255,0.05) !important;
             color: #fff !important; border: 1px solid rgba(255,255,255,0.2) !important;
         }
-        div[data-testid="stButton"] button {
-            border-radius: 12px !important; font-weight: 600 !important;
-            transition: all 0.3s ease !important;
-        }
-        div[data-testid="stButton"] button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,200,83,0.3);
-        }
+        div[data-testid="stButton"] button { border-radius: 12px !important; font-weight: 600 !important; }
 
         /* S/R Tags */
-        .sr-tag {
-            padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; display: inline-block;
-        }
+        .sr-tag { padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; display: inline-block; }
         .sr-strong { background: rgba(0, 230, 118, 0.2); color: #00E676; border: 1px solid #00E676; }
         .sr-psy { background: rgba(41, 98, 255, 0.2); color: #2962FF; border: 1px solid #2962FF; }
         .sr-weak { background: rgba(255, 255, 255, 0.1); color: #aaa; border: 1px solid #555; }
-
-        /* News & Sentiment */
-        .news-item {
-            border-left: 4px solid #2962FF; background: rgba(255,255,255,0.03);
-            padding: 15px; margin-bottom: 10px; border-radius: 0 10px 10px 0;
-        }
-        .sentiment-card {
-            padding: 15px; border-radius: 12px; margin-bottom: 15px;
-            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
-        }
-        .badge-good { background: rgba(0, 230, 118, 0.2); color: #00E676; padding: 5px 10px; border-radius: 8px; font-weight: bold; border: 1px solid #00E676; }
-        .badge-bad { background: rgba(255, 23, 68, 0.2); color: #FF1744; padding: 5px 10px; border-radius: 8px; font-weight: bold; border: 1px solid #FF1744; }
-        .badge-neutral { background: rgba(255, 255, 255, 0.1); color: #ccc; padding: 5px 10px; border-radius: 8px; font-weight: bold; border: 1px solid #555; }
-
-        /* Custom Headers */
+        
         .section-header {
             font-size: 1.5rem; font-weight: bold; background: linear-gradient(90deg, #fff, #888);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px;
@@ -115,64 +120,88 @@ def calculate_heikin_ashi(df):
 def identify_levels(df, window=5, tolerance=0.02):
     levels = []
     try:
-        # 1. Find Pivot Highs/Lows
         for i in range(window, len(df) - window):
             is_support = df['Low'][i] == df['Low'][i-window:i+window+1].min()
             is_resistance = df['High'][i] == df['High'][i-window:i+window+1].max()
-            
-            if is_support:
-                levels.append({'price': df['Low'][i], 'type': 'Support', 'score': 1, 'touches': 1})
-            elif is_resistance:
-                levels.append({'price': df['High'][i], 'type': 'Resistance', 'score': 1, 'touches': 1})
-                
-        # 2. Clustering
+            if is_support: levels.append({'price': df['Low'][i], 'type': 'Support', 'touches': 1})
+            elif is_resistance: levels.append({'price': df['High'][i], 'type': 'Resistance', 'touches': 1})
+        
         levels.sort(key=lambda x: x['price'])
-        merged_levels = []
+        merged = []
         if not levels: return []
         curr = levels[0]
         for next_lvl in levels[1:]:
             if abs(next_lvl['price'] - curr['price']) / curr['price'] < tolerance:
-                total_touches = curr['touches'] + next_lvl['touches']
-                new_price = ((curr['price'] * curr['touches']) + (next_lvl['price'] * next_lvl['touches'])) / total_touches
-                curr['price'] = new_price
-                curr['touches'] = total_touches
+                curr['price'] = (curr['price'] * curr['touches'] + next_lvl['price'] * next_lvl['touches']) / (curr['touches'] + next_lvl['touches'])
+                curr['touches'] += next_lvl['touches']
             else:
-                merged_levels.append(curr)
+                merged.append(curr)
                 curr = next_lvl
-        merged_levels.append(curr)
+        merged.append(curr)
         
-        # 3. Classification
-        final_levels = []
+        final = []
         current_price = df['Close'].iloc[-1]
-        for lvl in merged_levels:
+        for lvl in merged:
             price = lvl['price']
-            touches = lvl['touches']
-            magnitude = 10 ** int(math.log10(price)) if price > 0 else 1
             is_psy = False
-            if price > 1000:
-                if abs(price % 1000) < 10 or abs(price % 1000) > 990: is_psy = True
-            elif price > 100:
-                if abs(price % 100) < 1 or abs(price % 100) > 99: is_psy = True
-                
-            strength = "Weak"
-            desc = "แนวรับ/ต้านย่อย"
-            if touches >= 3 or (touches >= 2 and is_psy):
-                strength = "Strong"
-                desc = "🔥🔥 แข็งแกร่ง (Strong Zone)"
-            elif is_psy:
-                strength = "Psychological"
-                desc = "🧠 จิตวิทยา (Round Number)"
-            else:
-                strength = "Minor"
-                desc = "☁️ เบาบาง (Minor)"
-            if abs(price - current_price) / current_price > 0.5 and strength == "Minor": continue
-            lvl['strength'] = strength
-            lvl['desc'] = desc
-            final_levels.append(lvl)
-        return final_levels
+            if price > 100: is_psy = (abs(price % 100) < 1) or (abs(price % 1000) < 10)
+            
+            if lvl['touches'] >= 3 or (lvl['touches'] >= 2 and is_psy): strength, desc = "Strong", "🔥🔥 แข็งแกร่ง (Strong Zone)"
+            elif is_psy: strength, desc = "Psychological", "🧠 จิตวิทยา (Round Number)"
+            else: strength, desc = "Minor", "☁️ เบาบาง (Minor)"
+            
+            if abs(price - current_price)/current_price > 0.5 and strength == "Minor": continue
+            lvl['strength'], lvl['desc'] = strength, desc
+            final.append(lvl)
+        return final
     except: return []
 
-# --- Enhanced News & AI Sentiment ---
+# --- Trade Setup Logic ---
+def calculate_trade_setup(df):
+    try:
+        close = df['Close'].iloc[-1]
+        ema50 = df['Close'].ewm(span=50).mean().iloc[-1]
+        ema200 = df['Close'].ewm(span=200).mean().iloc[-1]
+        
+        # ATR Calculation (14)
+        high_low = df['High'] - df['Low']
+        high_close = np.abs(df['High'] - df['Close'].shift())
+        low_close = np.abs(df['Low'] - df['Close'].shift())
+        ranges = pd.concat([high_low, high_close, low_close], axis=1)
+        true_range = np.max(ranges, axis=1)
+        atr = true_range.rolling(14).mean().iloc[-1]
+        
+        trend = "Sideways"
+        signal = "WAIT"
+        color = "#888"
+        
+        # Logic
+        if close > ema50 and ema50 > ema200:
+            trend = "Uptrend (ขาขึ้น)"
+            signal = "LONG / BUY"
+            color = "#00E676"
+            entry = close
+            stop_loss = close - (1.5 * atr)
+            take_profit = close + (2.5 * atr)
+        elif close < ema50 and ema50 < ema200:
+            trend = "Downtrend (ขาลง)"
+            signal = "SHORT / SELL"
+            color = "#FF1744"
+            entry = close
+            stop_loss = close + (1.5 * atr)
+            take_profit = close - (2.5 * atr)
+        else:
+            entry = close
+            stop_loss = close - atr
+            take_profit = close + atr
+            
+        return {
+            'trend': trend, 'signal': signal, 'color': color,
+            'entry': entry, 'sl': stop_loss, 'tp': take_profit, 'atr': atr
+        }
+    except: return None
+
+# --- News & Sentiment ---
 @st.cache_data(ttl=1800)
 def get_bloomberg_news(symbol):
     news_list = []
@@ -182,91 +211,52 @@ def get_bloomberg_news(symbol):
         encoded_query = urllib.parse.quote(raw_query)
         rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
         feed = feedparser.parse(rss_url)
-        for item in feed.entries[:8]:
-            news_list.append({
-                'title': item.title,
-                'link': item.link,
-                'pubDate': item.published,
-                'source': 'Bloomberg (via Google)',
-                'summary': item.description
-            })
+        for item in feed.entries[:6]:
+            news_list.append({'title': item.title, 'link': item.link, 'summary': item.description, 'source': 'Bloomberg'})
     except: pass
     
-    if len(news_list) < 2:
+    if len(news_list) < 2: # Fallback
         try:
-            raw_query_bk = f"{clean_sym} finance news"
-            encoded_query_bk = urllib.parse.quote(raw_query_bk)
-            rss_bk = f"https://news.google.com/rss/search?q={encoded_query_bk}&hl=en-US&gl=US&ceid=US:en"
-            feed_bk = feedparser.parse(rss_bk)
-            for item in feed_bk.entries[:5]:
-                 news_list.append({
-                    'title': item.title,
-                    'link': item.link,
-                    'pubDate': item.published,
-                    'source': item.source.title if 'source' in item else 'News',
-                    'summary': item.description
-                })
+            q = urllib.parse.quote(f"{clean_sym} finance news")
+            feed = feedparser.parse(f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en")
+            for item in feed.entries[:4]:
+                 news_list.append({'title': item.title, 'link': item.link, 'summary': item.description, 'source': 'News'})
         except: pass
     return news_list
 
 def analyze_sentiment_advanced(text, title):
-    """
-    วิเคราะห์ Sentiment และแปลเป็นไทย พร้อมสรุปผลกระทบ
-    """
     try:
-        # 1. Translate
         translator = GoogleTranslator(source='auto', target='th')
         title_th = translator.translate(title)
-        
         soup = BeautifulSoup(text, "html.parser")
-        clean_text = soup.get_text()
-        summary_th = translator.translate(clean_text[:350] + "...")
+        summary_th = translator.translate(soup.get_text()[:300] + "...")
         
-        # 2. Sentiment Logic (TextBlob + Keywords)
         blob = TextBlob(text + " " + title)
         polarity = blob.sentiment.polarity
         
         # Keyword Boost
-        lower_text = (text + title).lower()
-        if any(w in lower_text for w in ['surge', 'soar', 'jump', 'record', 'bull', 'profit', 'growth']):
-            polarity += 0.2
-        if any(w in lower_text for w in ['crash', 'plunge', 'drop', 'bear', 'loss', 'inflation', 'ban']):
-            polarity -= 0.2
-            
-        # 3. Categorize
+        txt_low = (text + title).lower()
+        if any(w in txt_low for w in ['surge','soar','jump','record','bull','profit','approval','etf']): polarity += 0.25
+        if any(w in txt_low for w in ['crash','plunge','drop','bear','loss','ban','lawsuit','hack']): polarity -= 0.25
+        
         if polarity > 0.1:
-            category = "Positive"
-            badge_html = "<span class='badge-good'>🚀 ข่าวดี (Positive)</span>"
-            impact_text = "เป็นปัจจัยบวก อาจช่วยดันราคาขึ้น"
-            border_color = "#00E676"
+            cat, css_cls, badge_cls, icon = "Positive", "card-pos", "badge-pos", "🚀"
+            impact = "ปัจจัยบวก: มีแนวโน้มสนับสนุนราคาให้ปรับตัวขึ้น"
         elif polarity < -0.1:
-            category = "Negative"
-            badge_html = "<span class='badge-bad'>🔻 ข่าวร้าย (Negative)</span>"
-            impact_text = "เป็นปัจจัยลบ อาจกดดันราคาให้ร่วงลง"
-            border_color = "#FF1744"
+            cat, css_cls, badge_cls, icon = "Negative", "card-neg", "badge-neg", "🔻"
+            impact = "ปัจจัยลบ: ระวังแรงเทขายหรือข่าวร้ายกดดันตลาด"
         else:
-            category = "Neutral"
-            badge_html = "<span class='badge-neutral'>⚪ ทั่วไป (Neutral)</span>"
-            impact_text = "ข่าวยังไม่มีผลกระทบชัดเจน หรือตลาดยังรอความชัดเจน"
-            border_color = "#888"
+            cat, css_cls, badge_cls, icon = "Neutral", "card-neu", "badge-neu", "⚖️"
+            impact = "ทรงตัว: ตลาดยังรอความชัดเจน (Wait & See)"
             
-        return {
-            'title_th': title_th,
-            'summary_th': summary_th,
-            'category': category,
-            'badge': badge_html,
-            'impact': impact_text,
-            'border': border_color
-        }
-    except Exception as e:
-        return None
+        return {'title': title_th, 'summary': summary_th, 'cat': cat, 'css': css_cls, 'badge': badge_cls, 'icon': icon, 'impact': impact, 'link': item['link'], 'source': item['source']}
+    except: return None
 
-# --- 3. Sidebar & Controls ---
+# --- 3. Sidebar ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2991/2991148.png", width=60)
     st.title("Smart Trader AI")
     st.caption("Pro Max Edition")
-    
     st.markdown("### 🏆 Top Assets")
     c1, c2 = st.columns(2)
     with c1:
@@ -277,18 +267,15 @@ with st.sidebar:
         if st.button("🇹🇭 BTC-THB"): set_symbol("BTC-THB")
         if st.button("🇹🇭 ETH-THB"): set_symbol("ETH-THB")
         if st.button("Oil"): set_symbol("CL=F")
-
     st.markdown("---")
     st.subheader("🛠 Configuration")
     chart_type = st.selectbox("รูปแบบกราฟ", ["Candlestick (Standard)", "Heikin Ashi (Trend)"], index=0)
     period = st.select_slider("ย้อนหลัง", options=["1mo", "3mo", "6mo", "1y", "2y", "5y"], value="1y")
     interval = st.selectbox("Timeframe", ["1d", "1wk", "1h"], index=0)
-    st.info("💡 **Tab ใหม่:** 'AI Sentiment' ช่วยสรุปข่าวและบอกทิศทางราคา")
 
 # --- 4. Main Interface ---
 c_search, c_act = st.columns([3, 1])
-with c_search:
-    sym_input = st.text_input("🔍 Search Symbol (e.g. AAPL, TSLA, DOGE-USD)", value=st.session_state.symbol)
+with c_search: sym_input = st.text_input("🔍 Search Symbol", value=st.session_state.symbol)
 with c_act:
     st.write("")
     st.write("")
@@ -299,41 +286,37 @@ with c_act:
 symbol = st.session_state.symbol.upper()
 
 if symbol:
-    with st.spinner(f'🤖 AI กำลังวิเคราะห์ข้อมูล {symbol} จาก Bloomberg และ Market Data...'):
+    with st.spinner(f'🤖 AI กำลังประมวลผลกลยุทธ์สำหรับ {symbol}...'):
         df, ticker = get_data(symbol, period, interval)
     
     if df.empty:
-        st.error(f"❌ ไม่พบข้อมูล {symbol} โปรดตรวจสอบชื่อย่อ")
+        st.error(f"❌ ไม่พบข้อมูล {symbol}")
     else:
         # Indicators
-        current_price = df['Close'].iloc[-1]
-        prev_price = df['Close'].iloc[-2]
-        change = current_price - prev_price
-        pct_change = (change / prev_price) * 100
+        curr_price = df['Close'].iloc[-1]
+        change = curr_price - df['Close'].iloc[-2]
+        pct = (change / df['Close'].iloc[-2]) * 100
         df['EMA50'] = df['Close'].ewm(span=50).mean()
         df['EMA200'] = df['Close'].ewm(span=200).mean()
         delta = df['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
         rs = gain / loss
         df['RSI'] = 100 - (100 / (1 + rs))
         sr_levels = identify_levels(df)
-        
+        setup = calculate_trade_setup(df)
+
         # Header
         st.markdown(f"""
             <div class="glass-card" style="text-align: center; border-top: 4px solid {'#00E676' if change>=0 else '#FF1744'};">
                 <h1 style="margin:0; font-size: 3rem;">{symbol}</h1>
-                <h2 style="margin:0; font-size: 4rem; color: {'#00E676' if change>=0 else '#FF1744'};">
-                    {current_price:,.2f}
-                </h2>
-                <p style="font-size: 1.5rem; color: {'#aaa'};">
-                    {change:+,.2f} ({pct_change:+.2f}%)
-                </p>
+                <h2 style="margin:0; font-size: 4rem; color: {'#00E676' if change>=0 else '#FF1744'};">{curr_price:,.2f}</h2>
+                <p style="font-size: 1.5rem; color: #aaa;">{change:+,.2f} ({pct:+.2f}%)</p>
             </div>
         """, unsafe_allow_html=True)
         
-        # Tabs (Updated with Tab 5)
-        t1, t2, t3, t4, t5 = st.tabs(["📈 Smart Chart", "🛡️ Support/Resistance PRO", "📰 Bloomberg News", "📊 Fundamentals", "🧠 AI Sentiment Analysis"])
+        # Tabs (REPLACED Tab 3)
+        t1, t2, t3, t4, t5 = st.tabs(["📈 Smart Chart", "🛡️ S/R Levels", "🎯 Smart Trade Setup", "📊 Fundamentals", "🧠 AI Sentiment"])
         
         with t1:
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.7, 0.3])
@@ -345,124 +328,116 @@ if symbol:
                 plot_df = df
                 o, h, l, c = plot_df['Open'], plot_df['High'], plot_df['Low'], plot_df['Close']
                 c_inc, c_dec = '#26A69A', '#EF5350'
-            fig.add_trace(go.Candlestick(x=df.index, open=o, high=h, low=l, close=c, name='Price',
-                                         increasing_line_color=c_inc, decreasing_line_color=c_dec), row=1, col=1)
+            fig.add_trace(go.Candlestick(x=df.index, open=o, high=h, low=l, close=c, name='Price', increasing_line_color=c_inc, decreasing_line_color=c_dec), row=1, col=1)
             fig.add_trace(go.Scatter(x=df.index, y=df['EMA50'], line=dict(color='#2979FF', width=1), name='EMA 50'), row=1, col=1)
             fig.add_trace(go.Scatter(x=df.index, y=df['EMA200'], line=dict(color='#FF9100', width=1), name='EMA 200'), row=1, col=1)
             for lvl in sr_levels:
-                if abs(lvl['price'] - current_price) / current_price < 0.2: 
-                    color = 'rgba(0, 230, 118, 0.5)' if lvl['type'] == 'Support' else 'rgba(255, 23, 68, 0.5)'
-                    width = 2 if lvl['strength'] == 'Strong' else 1
-                    dash = 'solid' if lvl['strength'] == 'Strong' else 'dash'
-                    fig.add_hline(y=lvl['price'], line_dash=dash, line_color=color, line_width=width, row=1, col=1)
+                if abs(lvl['price'] - curr_price)/curr_price < 0.2:
+                    c_line = 'rgba(0,230,118,0.5)' if lvl['type']=='Support' else 'rgba(255,23,68,0.5)'
+                    fig.add_hline(y=lvl['price'], line_dash='dash', line_color=c_line, row=1, col=1)
             fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#AB47BC', width=1.5), name='RSI'), row=2, col=1)
             fig.add_hline(y=70, line_color='red', line_dash='dot', row=2, col=1)
             fig.add_hline(y=30, line_color='green', line_dash='dot', row=2, col=1)
             fig.update_layout(height=600, template='plotly_dark', margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            fig.update_xaxes(showgrid=False)
-            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.1)')
             st.plotly_chart(fig, use_container_width=True)
-            
-        with t2:
-            st.markdown("<div class='section-header'>🛡️ Advanced Support & Resistance Analysis</div>", unsafe_allow_html=True)
-            col_res, col_sup = st.columns(2)
-            res_levels = sorted([l for l in sr_levels if l['price'] > current_price], key=lambda x: x['price'])[:5]
-            sup_levels = sorted([l for l in sr_levels if l['price'] < current_price], key=lambda x: x['price'], reverse=True)[:5]
-            with col_res:
-                st.error("🟥 แนวต้าน (Resistance)")
-                if not res_levels: st.write("- ไม่พบแนวต้านใกล้เคียง -")
-                for r in reversed(res_levels):
-                    tag_class = "sr-strong" if r['strength']=="Strong" else "sr-psy" if r['strength']=="Psychological" else "sr-weak"
-                    st.markdown(f"<div style='border-bottom:1px solid #333; padding:10px; display:flex; justify-content:space-between;'><span style='font-family:monospace; font-size:1.2rem;'>{r['price']:,.2f}</span><span class='sr-tag {tag_class}'>{r['desc']}</span></div>", unsafe_allow_html=True)
-            with col_sup:
-                st.success("🟩 แนวรับ (Support)")
-                if not sup_levels: st.write("- ไม่พบแนวรับใกล้เคียง -")
-                for s in sup_levels:
-                    tag_class = "sr-strong" if s['strength']=="Strong" else "sr-psy" if s['strength']=="Psychological" else "sr-weak"
-                    buy_msg = "🛒 เข้าซื้อได้" if s['strength'] == "Strong" else ""
-                    st.markdown(f"<div style='border-bottom:1px solid #333; padding:10px; display:flex; justify-content:space-between;'><span style='font-family:monospace; font-size:1.2rem;'>{s['price']:,.2f}</span><div><span style='color:#00E676; font-size:0.8rem; margin-right:5px;'>{buy_msg}</span><span class='sr-tag {tag_class}'>{s['desc']}</span></div></div>", unsafe_allow_html=True)
 
+        with t2:
+            st.markdown("<div class='section-header'>🛡️ Support & Resistance (Advanced)</div>", unsafe_allow_html=True)
+            c_res, c_sup = st.columns(2)
+            res = sorted([l for l in sr_levels if l['price'] > curr_price], key=lambda x:x['price'])[:5]
+            sup = sorted([l for l in sr_levels if l['price'] < curr_price], key=lambda x:x['price'], reverse=True)[:5]
+            with c_res:
+                st.error("🟥 RESISTANCE (แนวต้าน)")
+                for r in reversed(res):
+                    tag = "sr-strong" if r['strength']=="Strong" else "sr-psy" if r['strength']=="Psychological" else "sr-weak"
+                    st.markdown(f"<div style='border-bottom:1px solid #333; padding:10px; display:flex; justify-content:space-between;'><span style='font-family:monospace; font-size:1.1rem;'>{r['price']:,.2f}</span><span class='sr-tag {tag}'>{r['desc']}</span></div>", unsafe_allow_html=True)
+            with c_sup:
+                st.success("🟩 SUPPORT (แนวรับ)")
+                for s in sup:
+                    tag = "sr-strong" if s['strength']=="Strong" else "sr-psy" if s['strength']=="Psychological" else "sr-weak"
+                    st.markdown(f"<div style='border-bottom:1px solid #333; padding:10px; display:flex; justify-content:space-between;'><span style='font-family:monospace; font-size:1.1rem;'>{s['price']:,.2f}</span><span class='sr-tag {tag}'>{s['desc']}</span></div>", unsafe_allow_html=True)
+
+        # --- TAB 3: SMART TRADE SETUP (NEW) ---
         with t3:
-            st.markdown("<div class='section-header'>📰 Bloomberg News Feed</div>", unsafe_allow_html=True)
-            news = get_bloomberg_news(symbol)
-            if not news: st.warning("ไม่พบข่าวใหม่")
+            st.markdown("<div class='section-header'>🎯 Smart Trade Setup (AI Plan)</div>", unsafe_allow_html=True)
+            if setup:
+                st.markdown(f"""
+                <div class="glass-card" style="border-left: 10px solid {setup['color']};">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="font-size:2rem; font-weight:bold; color:{setup['color']};">{setup['signal']}</div>
+                        <div style="font-size:1.2rem; color:#aaa;">Trend: {setup['trend']}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                c_en, c_sl, c_tp = st.columns(3)
+                with c_en:
+                    st.markdown(f"<div class='setup-box'><div class='setup-label'>🔵 ENTRY PRICE</div><div class='setup-val' style='color:#2979FF'>{setup['entry']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Current Market Price</div></div>", unsafe_allow_html=True)
+                with c_sl:
+                    st.markdown(f"<div class='setup-box'><div class='setup-label'>🔴 STOP LOSS</div><div class='setup-val' style='color:#FF1744'>{setup['sl']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Risk Based on ATR ({setup['atr']:,.2f})</div></div>", unsafe_allow_html=True)
+                with c_tp:
+                    st.markdown(f"<div class='setup-box'><div class='setup-label'>🟢 TAKE PROFIT</div><div class='setup-val' style='color:#00E676'>{setup['tp']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Reward Ratio 1:1.5+</div></div>", unsafe_allow_html=True)
+                
+                st.info("⚠️ **คำเตือน:** แผนการเทรดนี้คำนวณจากความผันผวน (ATR) และเทรนด์ (EMA) โดยอัตโนมัติ ไม่ใช่คำแนะนำทางการเงิน ผู้ลงทุนควรบริหารความเสี่ยงด้วยตนเอง")
             else:
-                for item in news:
-                    st.markdown(f"<div class='news-item'><div style='font-weight:bold; color:#fff;'>{item['title']}</div><div style='font-size:0.9rem; color:#aaa;'>{item['summary'][:200]}...</div><div style='margin-top:5px;'><a href='{item['link']}' target='_blank' style='color:#00E676;'>Read More</a></div></div>", unsafe_allow_html=True)
+                st.warning("ข้อมูลไม่เพียงพอสำหรับการคำนวณแผนการเทรด")
 
         with t4:
             info = ticker.info
             st.markdown("<div class='section-header'>📊 Fundamentals</div>", unsafe_allow_html=True)
             c1, c2, c3, c4 = st.columns(4)
-            with c1: st.metric("Market Cap", f"{info.get('marketCap', 0):,}")
-            with c2: st.metric("PE Ratio", f"{info.get('trailingPE', 0):.2f}")
-            with c3: st.metric("52W High", f"{info.get('fiftyTwoWeekHigh', 0):,.2f}")
-            with c4: st.metric("52W Low", f"{info.get('fiftyTwoWeekLow', 0):,.2f}")
-            st.markdown("---")
-            st.markdown(f"**Description:** {info.get('longBusinessSummary', 'N/A')[:600]}...")
+            with c1: st.metric("Market Cap", f"{info.get('marketCap',0):,}")
+            with c2: st.metric("PE Ratio", f"{info.get('trailingPE',0):.2f}")
+            with c3: st.metric("52W High", f"{info.get('fiftyTwoWeekHigh',0):,.2f}")
+            with c4: st.metric("52W Low", f"{info.get('fiftyTwoWeekLow',0):,.2f}")
 
-        # --- TAB 5: AI SENTIMENT ---
+        # --- TAB 5: SENTIMENT (IMPROVED UI) ---
         with t5:
-            st.markdown("<div class='section-header'>🧠 AI Sentiment & Impact Analysis (THAI)</div>", unsafe_allow_html=True)
-            st.info("💡 ระบบใช้ AI แปลข่าวจาก Bloomberg และวิเคราะห์ Keywords เพื่อประเมินผลกระทบต่อราคา (Good/Bad/Neutral)")
+            st.markdown("<div class='section-header'>🧠 AI Sentiment Analysis (Thai)</div>", unsafe_allow_html=True)
             
             raw_news = get_bloomberg_news(symbol)
-            
             if not raw_news:
-                st.warning("ไม่พบข่าวเพื่อนำมาวิเคราะห์")
+                st.warning("ไม่พบข่าวในขณะนี้")
             else:
-                # Process News
-                pos_cnt, neg_cnt, neu_cnt = 0, 0, 0
-                processed_items = []
+                processed = []
+                pos, neg, neu = 0, 0, 0
                 
-                progress_bar = st.progress(0)
+                bar = st.progress(0)
                 for i, item in enumerate(raw_news):
-                    # Update Progress
-                    progress_bar.progress((i + 1) / len(raw_news))
-                    
-                    # Analyze
-                    analysis = analyze_sentiment_advanced(item['summary'], item['title'])
-                    if analysis:
-                        analysis['link'] = item['link']
-                        analysis['source'] = item['source']
-                        processed_items.append(analysis)
-                        if analysis['category'] == 'Positive': pos_cnt += 1
-                        elif analysis['category'] == 'Negative': neg_cnt += 1
-                        else: neu_cnt += 1
-                progress_bar.empty()
+                    bar.progress((i+1)/len(raw_news))
+                    res = analyze_sentiment_advanced(item['summary'], item['title'])
+                    if res:
+                        res['link'] = item['link']
+                        res['source'] = item['source']
+                        processed.append(res)
+                        if res['cat']=='Positive': pos+=1
+                        elif res['cat']=='Negative': neg+=1
+                        else: neu+=1
+                bar.empty()
                 
-                # Display Summary Metrics
-                col_s1, col_s2, col_s3 = st.columns(3)
-                col_s1.metric("ข่าวปัจจัยบวก (Positive)", f"{pos_cnt} ข่าว", delta="Bullish", delta_color="normal")
-                col_s2.metric("ข่าวปัจจัยลบ (Negative)", f"{neg_cnt} ข่าว", delta="-Bearish", delta_color="inverse")
-                col_s3.metric("ข่าวทั่วไป (Neutral)", f"{neu_cnt} ข่าว", delta="Wait & See", delta_color="off")
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Positive News", f"{pos}", delta="Bullish", delta_color="normal")
+                c2.metric("Negative News", f"{neg}", delta="-Bearish", delta_color="inverse")
+                c3.metric("Neutral News", f"{neu}", delta="Wait", delta_color="off")
                 
                 st.markdown("---")
                 
-                # Display Cards
-                for item in processed_items:
+                for p in processed:
                     st.markdown(f"""
-                    <div class="sentiment-card" style="border-left: 5px solid {item['border']};">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
-                            <div style="font-size:1.2rem; font-weight:bold; color:#fff; width:80%;">{item['title_th']}</div>
-                            <div>{item['badge']}</div>
+                    <div class="sentiment-card {p['css']}">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                            <span class="{p['badge']}">{p['icon']} {p['cat']}</span>
+                            <span style="color:#666; font-size:0.8rem;">Source: {p['source']}</span>
                         </div>
-                        <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; margin-bottom:10px;">
-                            <span style="color:#aaa;">📝 <b>เนื้อหาโดยย่อ:</b> {item['summary_th']}</span>
+                        <div style="font-size:1.1rem; font-weight:bold; color:#fff; margin-bottom:10px;">{p['title']}</div>
+                        <div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; color:#ccc; font-size:0.9rem; margin-bottom:10px;">
+                            {p['summary']}
                         </div>
-                        <div style="color:{item['border']}; font-weight:bold;">
-                            💥 ผลกระทบ: {item['impact']}
+                        <div style="font-weight:bold; margin-top:5px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.1);">
+                            💥 {p['impact']}
                         </div>
-                        <div style="margin-top:10px; font-size:0.8rem; text-align:right;">
-                            <a href="{item['link']}" target="_blank" style="color:#fff; text-decoration:underline;">อ่านข่าวต้นฉบับ ({item['source']})</a>
+                        <div style="text-align:right; margin-top:5px;">
+                             <a href="{p['link']}" target="_blank" style="color:#aaa; font-size:0.8rem; text-decoration:none;">🔗 อ่านข่าวต้นฉบับ</a>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-
-# --- Footer ---
-st.markdown("""
-    <div style="text-align:center; margin-top:50px; color:#666; border-top:1px solid #333; padding-top:20px;">
-        Smart Trader AI Pro Max © 2024 | Designed for Precision Trading<br>
-        <small>Data delayed by 15 mins. Investment involves risk.</small>
-    </div>
-""", unsafe_allow_html=True)
