@@ -402,4 +402,28 @@ if symbol:
                         <div style="font-size:0.9rem; color:#aaa; margin-top:5px;">{th_sum}</div>
                         <div style="margin-top:10px; font-size:0.8rem; display:flex; justify-content:space-between;">
                             <span style="color:#2962FF;">Source: {item['source']}</span>
-                            <a href="{item['link']}" ta
+                            <a href="{item['link']}" target="_blank" style="color:#00E676; text-decoration:none;">อ่านต่อฉบับเต็ม 🔗</a>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+        with t4:
+            info = ticker.info
+            st.markdown("<div class='section-header'>📊 Fundamental & Key Stats</div>", unsafe_allow_html=True)
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1: st.metric("Market Cap", f"{info.get('marketCap', 0):,}")
+            with col2: st.metric("PE Ratio", f"{info.get('trailingPE', 0):.2f}")
+            with col3: st.metric("52 Week High", f"{info.get('fiftyTwoWeekHigh', 0):,.2f}")
+            with col4: st.metric("52 Week Low", f"{info.get('fiftyTwoWeekLow', 0):,.2f}")
+                
+            st.markdown("---")
+            st.markdown(f"**Business Summary:** {info.get('longBusinessSummary', 'No summary available.')[:500]}...")
+
+# --- Footer ---
+st.markdown("""
+    <div style="text-align:center; margin-top:50px; color:#666; border-top:1px solid #333; padding-top:20px;">
+        Smart Trader AI Pro Max © 2024 | Designed for Precision Trading<br>
+        <small>Data delayed by 15 mins. Investment involves risk.</small>
+    </div>
+""", unsafe_allow_html=True)
