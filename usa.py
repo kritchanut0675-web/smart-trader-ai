@@ -49,7 +49,32 @@ st.markdown("""
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
         }
 
-        /* --- Sentiment Analysis Cards (High Contrast) --- */
+        /* --- Entry Strategy Cards (New Tab 6) --- */
+        .entry-card {
+            padding: 20px; border-radius: 16px; margin-bottom: 15px; position: relative; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        /* Tier 1: Probe */
+        .ec-tier1 { background: linear-gradient(135deg, rgba(0, 229, 255, 0.1) 0%, rgba(0,0,0,0) 100%); border-left: 5px solid #00E5FF; }
+        .ec-title-1 { color: #00E5FF; font-size: 1.2rem; font-weight: bold; text-transform: uppercase; }
+        
+        /* Tier 2: Accumulate */
+        .ec-tier2 { background: linear-gradient(135deg, rgba(255, 214, 0, 0.1) 0%, rgba(0,0,0,0) 100%); border-left: 5px solid #FFD600; }
+        .ec-title-2 { color: #FFD600; font-size: 1.2rem; font-weight: bold; text-transform: uppercase; }
+        
+        /* Tier 3: Sniper/Heavy */
+        .ec-tier3 { background: linear-gradient(135deg, rgba(255, 23, 68, 0.15) 0%, rgba(0,0,0,0) 100%); border-left: 5px solid #FF1744; box-shadow: 0 0 20px rgba(255, 23, 68, 0.2); }
+        .ec-title-3 { color: #FF1744; font-size: 1.4rem; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; }
+
+        .ec-price { font-size: 2rem; font-weight: bold; margin: 10px 0; color: #fff; }
+        .ec-desc { color: #aaa; font-size: 0.9rem; }
+        .ec-allocation { 
+            position: absolute; top: 20px; right: 20px; 
+            background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-weight: bold;
+        }
+
+        /* --- Sentiment Analysis Cards --- */
         .sentiment-card {
             padding: 20px; border-radius: 15px; margin-bottom: 20px;
             background: #111;
@@ -58,7 +83,6 @@ st.markdown("""
         }
         .sentiment-card:hover { transform: scale(1.01); }
         
-        /* Sentiment News List Colors */
         .card-pos { border-left: 6px solid #00E676; border-top: 1px solid rgba(0, 230, 118, 0.3); }
         .badge-pos { background: #00E676; color: #000; padding: 6px 12px; border-radius: 20px; font-weight: 900; }
         
@@ -68,16 +92,14 @@ st.markdown("""
         .card-neu { border-left: 6px solid #FFD600; border-top: 1px solid rgba(255, 214, 0, 0.3); }
         .badge-neu { background: #FFD600; color: #000; padding: 6px 12px; border-radius: 20px; font-weight: 900; }
 
-        /* --- Sentiment Header Boxes (New) --- */
         .sent-box { text-align: center; padding: 15px; border-radius: 12px; border: 1px solid #333; margin-bottom: 20px; }
         .sent-box-val { font-size: 2.5rem; font-weight: bold; margin: 0; }
         .sent-box-lbl { font-size: 1rem; opacity: 0.8; }
-        
         .sb-pos { background: rgba(0, 230, 118, 0.15); border-color: #00E676; color: #00E676; }
         .sb-neg { background: rgba(255, 23, 68, 0.15); border-color: #FF1744; color: #FF1744; }
         .sb-neu { background: rgba(255, 214, 0, 0.15); border-color: #FFD600; color: #FFD600; }
 
-        /* --- Fundamental Cards (New) --- */
+        /* --- Fundamental Cards --- */
         .fund-card {
             background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; text-align: center;
             border: 1px solid rgba(255,255,255,0.1); height: 100%;
@@ -86,29 +108,17 @@ st.markdown("""
         .fund-lbl { font-size: 0.9rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
 
         /* Trade Setup Cards */
-        .setup-box {
-            background: #1e1e1e; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #333;
-        }
+        .setup-box { background: #1e1e1e; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #333; }
         .setup-label { color: #888; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
         .setup-val { font-size: 1.8rem; font-weight: bold; margin-top: 5px; }
 
-        /* Inputs & Buttons */
-        div[data-testid="stTextInput"] input {
-            border-radius: 12px !important; background-color: rgba(255,255,255,0.05) !important;
-            color: #fff !important; border: 1px solid rgba(255,255,255,0.2) !important;
-        }
+        div[data-testid="stTextInput"] input { border-radius: 12px !important; background-color: rgba(255,255,255,0.05) !important; color: #fff !important; border: 1px solid rgba(255,255,255,0.2) !important; }
         div[data-testid="stButton"] button { border-radius: 12px !important; font-weight: 600 !important; }
-
-        /* S/R Tags */
         .sr-tag { padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; display: inline-block; }
         .sr-strong { background: rgba(0, 230, 118, 0.2); color: #00E676; border: 1px solid #00E676; }
         .sr-psy { background: rgba(41, 98, 255, 0.2); color: #2962FF; border: 1px solid #2962FF; }
         .sr-weak { background: rgba(255, 255, 255, 0.1); color: #aaa; border: 1px solid #555; }
-        
-        .section-header {
-            font-size: 1.5rem; font-weight: bold; background: linear-gradient(90deg, #fff, #888);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px;
-        }
+        .section-header { font-size: 1.5rem; font-weight: bold; background: linear-gradient(90deg, #fff, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -190,7 +200,6 @@ def calculate_trade_setup(df):
         signal = "WAIT"
         color = "#888"
         
-        # Logic
         if close > ema50 and ema50 > ema200:
             trend = "Uptrend (ขาขึ้น)"
             signal = "LONG / BUY"
@@ -216,6 +225,42 @@ def calculate_trade_setup(df):
         }
     except: return None
 
+# --- NEW: Tiered Entry Strategy Logic ---
+def calculate_tiered_entries(df, sr_levels):
+    try:
+        current_price = df['Close'].iloc[-1]
+        
+        # Calculate ATR for dynamic spacing
+        high_low = df['High'] - df['Low']
+        high_close = np.abs(df['High'] - df['Close'].shift())
+        low_close = np.abs(df['Low'] - df['Close'].shift())
+        ranges = pd.concat([high_low, high_close, low_close], axis=1)
+        atr = np.max(ranges, axis=1).rolling(14).mean().iloc[-1]
+        
+        # Filter Supports below current price
+        supports = sorted([s['price'] for s in sr_levels if s['price'] < current_price], reverse=True)
+        
+        # Tier 1: Probe (Nearest support or -2%)
+        t1_price = supports[0] if len(supports) > 0 else current_price * 0.98
+        
+        # Tier 2: Accumulate (Next support or Tier 1 - 2*ATR)
+        t2_price = supports[1] if len(supports) > 1 else t1_price - (2 * atr)
+        
+        # Tier 3: Heavy (Deep support or Tier 2 - 3*ATR)
+        t3_price = supports[2] if len(supports) > 2 else t2_price - (3 * atr)
+        
+        # Ensure logical spacing (don't let them be too close)
+        if (t1_price - t2_price) < atr: t2_price = t1_price - atr
+        if (t2_price - t3_price) < atr: t3_price = t2_price - (1.5 * atr)
+
+        return {
+            't1': t1_price,
+            't2': t2_price,
+            't3': t3_price,
+            'atr': atr
+        }
+    except: return None
+
 # --- News & Sentiment ---
 @st.cache_data(ttl=1800)
 def get_bloomberg_news(symbol):
@@ -230,7 +275,7 @@ def get_bloomberg_news(symbol):
             news_list.append({'title': item.title, 'link': item.link, 'summary': item.description, 'source': 'Bloomberg'})
     except: pass
     
-    if len(news_list) < 2: # Fallback
+    if len(news_list) < 2:
         try:
             q = urllib.parse.quote(f"{clean_sym} finance news")
             feed = feedparser.parse(f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en")
@@ -245,26 +290,16 @@ def analyze_sentiment_advanced(text, title):
         title_th = translator.translate(title)
         soup = BeautifulSoup(text, "html.parser")
         summary_th = translator.translate(soup.get_text()[:300] + "...")
-        
         blob = TextBlob(text + " " + title)
         polarity = blob.sentiment.polarity
-        
-        # Keyword Boost
         txt_low = (text + title).lower()
         if any(w in txt_low for w in ['surge','soar','jump','record','bull','profit','approval','etf']): polarity += 0.25
         if any(w in txt_low for w in ['crash','plunge','drop','bear','loss','ban','lawsuit','hack']): polarity -= 0.25
         
-        if polarity > 0.1:
-            cat, css_cls, badge_cls, icon = "Positive", "card-pos", "badge-pos", "🚀"
-            impact = "ปัจจัยบวก: มีแนวโน้มสนับสนุนราคาให้ปรับตัวขึ้น"
-        elif polarity < -0.1:
-            cat, css_cls, badge_cls, icon = "Negative", "card-neg", "badge-neg", "🔻"
-            impact = "ปัจจัยลบ: ระวังแรงเทขายหรือข่าวร้ายกดดันตลาด"
-        else:
-            cat, css_cls, badge_cls, icon = "Neutral", "card-neu", "badge-neu", "⚖️"
-            impact = "ทรงตัว: ตลาดยังรอความชัดเจน (Wait & See)"
-            
-        return {'title': title_th, 'summary': summary_th, 'cat': cat, 'css': css_cls, 'badge': badge_cls, 'icon': icon, 'impact': impact, 'link': None, 'source': None}
+        if polarity > 0.1: cat, css, badge, icon, impact = "Positive", "card-pos", "badge-pos", "🚀", "ปัจจัยบวก: แนวโน้มสนับสนุนราคา"
+        elif polarity < -0.1: cat, css, badge, icon, impact = "Negative", "card-neg", "badge-neg", "🔻", "ปัจจัยลบ: ระวังแรงเทขาย"
+        else: cat, css, badge, icon, impact = "Neutral", "card-neu", "badge-neu", "⚖️", "ทรงตัว: รอความชัดเจน"
+        return {'title': title_th, 'summary': summary_th, 'cat': cat, 'css': css, 'badge': badge, 'icon': icon, 'impact': impact, 'link': None, 'source': None}
     except: return None
 
 # --- 3. Sidebar ---
@@ -307,7 +342,6 @@ if symbol:
     if df.empty:
         st.error(f"❌ ไม่พบข้อมูล {symbol}")
     else:
-        # Indicators
         curr_price = df['Close'].iloc[-1]
         change = curr_price - df['Close'].iloc[-2]
         pct = (change / df['Close'].iloc[-2]) * 100
@@ -320,8 +354,8 @@ if symbol:
         df['RSI'] = 100 - (100 / (1 + rs))
         sr_levels = identify_levels(df)
         setup = calculate_trade_setup(df)
+        entries = calculate_tiered_entries(df, sr_levels)
 
-        # Header
         st.markdown(f"""
             <div class="glass-card" style="text-align: center; border-top: 4px solid {'#00E676' if change>=0 else '#FF1744'};">
                 <h1 style="margin:0; font-size: 3rem;">{symbol}</h1>
@@ -330,8 +364,8 @@ if symbol:
             </div>
         """, unsafe_allow_html=True)
         
-        # Tabs
-        t1, t2, t3, t4, t5 = st.tabs(["📈 Smart Chart", "🛡️ S/R Levels", "🎯 Smart Trade Setup", "📊 Fundamentals", "🧠 AI Sentiment"])
+        # Tabs (Added Tab 6)
+        t1, t2, t3, t4, t5, t6 = st.tabs(["📈 Smart Chart", "🛡️ S/R Levels", "🎯 Smart Trade Setup", "📊 Fundamentals", "🧠 AI Sentiment", "💰 AI Entry Strategy"])
         
         with t1:
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.7, 0.3])
@@ -383,50 +417,29 @@ if symbol:
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-                
                 c_en, c_sl, c_tp = st.columns(3)
-                with c_en:
-                    st.markdown(f"<div class='setup-box'><div class='setup-label'>🔵 ENTRY PRICE</div><div class='setup-val' style='color:#2979FF'>{setup['entry']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Current Market Price</div></div>", unsafe_allow_html=True)
-                with c_sl:
-                    st.markdown(f"<div class='setup-box'><div class='setup-label'>🔴 STOP LOSS</div><div class='setup-val' style='color:#FF1744'>{setup['sl']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Risk Based on ATR ({setup['atr']:,.2f})</div></div>", unsafe_allow_html=True)
-                with c_tp:
-                    st.markdown(f"<div class='setup-box'><div class='setup-label'>🟢 TAKE PROFIT</div><div class='setup-val' style='color:#00E676'>{setup['tp']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Reward Ratio 1:1.5+</div></div>", unsafe_allow_html=True)
-            else:
-                st.warning("ข้อมูลไม่เพียงพอสำหรับการคำนวณแผนการเทรด")
+                with c_en: st.markdown(f"<div class='setup-box'><div class='setup-label'>🔵 ENTRY PRICE</div><div class='setup-val' style='color:#2979FF'>{setup['entry']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Current Market Price</div></div>", unsafe_allow_html=True)
+                with c_sl: st.markdown(f"<div class='setup-box'><div class='setup-label'>🔴 STOP LOSS</div><div class='setup-val' style='color:#FF1744'>{setup['sl']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Risk Based on ATR ({setup['atr']:,.2f})</div></div>", unsafe_allow_html=True)
+                with c_tp: st.markdown(f"<div class='setup-box'><div class='setup-label'>🟢 TAKE PROFIT</div><div class='setup-val' style='color:#00E676'>{setup['tp']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Reward Ratio 1:1.5+</div></div>", unsafe_allow_html=True)
 
-        # --- TAB 4: FUNDAMENTALS (Colorful Cards) ---
         with t4:
             info = ticker.info
             st.markdown("<div class='section-header'>📊 Fundamentals Analysis</div>", unsafe_allow_html=True)
-            
             c1, c2, c3, c4 = st.columns(4)
-            with c1:
-                st.markdown(f"""<div class='fund-card' style='border-top: 3px solid #2979FF;'>
-                <div class='fund-lbl'>Market Cap</div><div class='fund-val' style='color:#2979FF'>{info.get('marketCap',0):,}</div></div>""", unsafe_allow_html=True)
-            with c2:
-                st.markdown(f"""<div class='fund-card' style='border-top: 3px solid #AB47BC;'>
-                <div class='fund-lbl'>P/E Ratio</div><div class='fund-val' style='color:#AB47BC'>{info.get('trailingPE',0):.2f}</div></div>""", unsafe_allow_html=True)
-            with c3:
-                st.markdown(f"""<div class='fund-card' style='border-top: 3px solid #00E676;'>
-                <div class='fund-lbl'>52 Week High</div><div class='fund-val' style='color:#00E676'>{info.get('fiftyTwoWeekHigh',0):,.2f}</div></div>""", unsafe_allow_html=True)
-            with c4:
-                st.markdown(f"""<div class='fund-card' style='border-top: 3px solid #FF1744;'>
-                <div class='fund-lbl'>52 Week Low</div><div class='fund-val' style='color:#FF1744'>{info.get('fiftyTwoWeekLow',0):,.2f}</div></div>""", unsafe_allow_html=True)
-            
+            with c1: st.markdown(f"""<div class='fund-card' style='border-top: 3px solid #2979FF;'><div class='fund-lbl'>Market Cap</div><div class='fund-val' style='color:#2979FF'>{info.get('marketCap',0):,}</div></div>""", unsafe_allow_html=True)
+            with c2: st.markdown(f"""<div class='fund-card' style='border-top: 3px solid #AB47BC;'><div class='fund-lbl'>P/E Ratio</div><div class='fund-val' style='color:#AB47BC'>{info.get('trailingPE',0):.2f}</div></div>""", unsafe_allow_html=True)
+            with c3: st.markdown(f"""<div class='fund-card' style='border-top: 3px solid #00E676;'><div class='fund-lbl'>52 Week High</div><div class='fund-val' style='color:#00E676'>{info.get('fiftyTwoWeekHigh',0):,.2f}</div></div>""", unsafe_allow_html=True)
+            with c4: st.markdown(f"""<div class='fund-card' style='border-top: 3px solid #FF1744;'><div class='fund-lbl'>52 Week Low</div><div class='fund-val' style='color:#FF1744'>{info.get('fiftyTwoWeekLow',0):,.2f}</div></div>""", unsafe_allow_html=True)
             st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
             st.info(f"ℹ️ **Business Summary:** {info.get('longBusinessSummary', 'No description available.')[:600]}...")
 
-        # --- TAB 5: SENTIMENT (Improved Header) ---
         with t5:
             st.markdown("<div class='section-header'>🧠 AI Sentiment Analysis (Thai)</div>", unsafe_allow_html=True)
-            
             raw_news = get_bloomberg_news(symbol)
-            if not raw_news:
-                st.warning("ไม่พบข่าวในขณะนี้")
+            if not raw_news: st.warning("ไม่พบข่าวในขณะนี้")
             else:
                 processed = []
                 pos, neg, neu = 0, 0, 0
-                
                 bar = st.progress(0)
                 for i, item in enumerate(raw_news):
                     bar.progress((i+1)/len(raw_news))
@@ -439,46 +452,48 @@ if symbol:
                         elif res['cat']=='Negative': neg+=1
                         else: neu+=1
                 bar.empty()
-                
-                # --- NEW COLORED HEADER ---
                 c1, c2, c3 = st.columns(3)
-                with c1:
-                    st.markdown(f"""
-                    <div class="sent-box sb-pos">
-                        <div class="sent-box-val">{pos}</div>
-                        <div class="sent-box-lbl">Positive News (ข่าวดี)</div>
-                    </div>""", unsafe_allow_html=True)
-                with c2:
-                    st.markdown(f"""
-                    <div class="sent-box sb-neg">
-                        <div class="sent-box-val">{neg}</div>
-                        <div class="sent-box-lbl">Negative News (ข่าวร้าย)</div>
-                    </div>""", unsafe_allow_html=True)
-                with c3:
-                    st.markdown(f"""
-                    <div class="sent-box sb-neu">
-                        <div class="sent-box-val">{neu}</div>
-                        <div class="sent-box-lbl">Neutral News (ทั่วไป)</div>
-                    </div>""", unsafe_allow_html=True)
-                
+                with c1: st.markdown(f"""<div class="sent-box sb-pos"><div class="sent-box-val">{pos}</div><div class="sent-box-lbl">Positive News (ข่าวดี)</div></div>""", unsafe_allow_html=True)
+                with c2: st.markdown(f"""<div class="sent-box sb-neg"><div class="sent-box-val">{neg}</div><div class="sent-box-lbl">Negative News (ข่าวร้าย)</div></div>""", unsafe_allow_html=True)
+                with c3: st.markdown(f"""<div class="sent-box sb-neu"><div class="sent-box-val">{neu}</div><div class="sent-box-lbl">Neutral News (ทั่วไป)</div></div>""", unsafe_allow_html=True)
                 st.markdown("---")
-                
                 for p in processed:
-                    st.markdown(f"""
-                    <div class="sentiment-card {p['css']}">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                            <span class="{p['badge']}">{p['icon']} {p['cat']}</span>
-                            <span style="color:#666; font-size:0.8rem;">Source: {p['source']}</span>
-                        </div>
-                        <div style="font-size:1.1rem; font-weight:bold; color:#fff; margin-bottom:10px;">{p['title']}</div>
-                        <div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; color:#ccc; font-size:0.9rem; margin-bottom:10px;">
-                            {p['summary']}
-                        </div>
-                        <div style="font-weight:bold; margin-top:5px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.1);">
-                            💥 {p['impact']}
-                        </div>
-                        <div style="text-align:right; margin-top:5px;">
-                             <a href="{p['link']}" target="_blank" style="color:#aaa; font-size:0.8rem; text-decoration:none;">🔗 อ่านข่าวต้นฉบับ</a>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"""<div class="sentiment-card {p['css']}"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><span class="{p['badge']}">{p['icon']} {p['cat']}</span><span style="color:#666; font-size:0.8rem;">Source: {p['source']}</span></div><div style="font-size:1.1rem; font-weight:bold; color:#fff; margin-bottom:10px;">{p['title']}</div><div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; color:#ccc; font-size:0.9rem; margin-bottom:10px;">{p['summary']}</div><div style="font-weight:bold; margin-top:5px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.1);">💥 {p['impact']}</div><div style="text-align:right; margin-top:5px;"><a href="{p['link']}" target="_blank" style="color:#aaa; font-size:0.8rem; text-decoration:none;">🔗 อ่านข่าวต้นฉบับ</a></div></div>""", unsafe_allow_html=True)
+
+        # --- TAB 6: AI ENTRY STRATEGY (NEW) ---
+        with t6:
+            st.markdown("<div class='section-header'>💰 AI Entry Strategy (Money Management)</div>", unsafe_allow_html=True)
+            if entries:
+                # Tier 1
+                st.markdown(f"""
+                <div class="entry-card ec-tier1">
+                    <div class="ec-allocation">Allocation: 20%</div>
+                    <div class="ec-title-1">🪵 ไม้แรก (Probe Buy)</div>
+                    <div class="ec-price">{entries['t1']:,.2f}</div>
+                    <div class="ec-desc">เข้าซื้อเพื่อหยั่งเชิง หรือ Testing Position บริเวณแนวรับแรก หากราคายืนไม่อยู่ให้เตรียมไม้สอง</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Tier 2
+                st.markdown(f"""
+                <div class="entry-card ec-tier2">
+                    <div class="ec-allocation">Allocation: 30%</div>
+                    <div class="ec-title-2">🪵 ไม้สอง (Accumulate)</div>
+                    <div class="ec-price">{entries['t2']:,.2f}</div>
+                    <div class="ec-desc">จุดเข้าซื้อเพิ่มเมื่อราคาย่อตัวลงมา (Correction) เพื่อถัวเฉลี่ยต้นทุนในจุดที่มีนัยยะสำคัญ</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Tier 3
+                st.markdown(f"""
+                <div class="entry-card ec-tier3">
+                    <div class="ec-allocation">Allocation: 50%</div>
+                    <div class="ec-title-3">💎 ไม้หนัก (Strong / Sniper)</div>
+                    <div class="ec-price">{entries['t3']:,.2f}</div>
+                    <div class="ec-desc">โซนแนวรับแข็งแกร่งที่สุด หรือ Panic Sell จุดนี้คือจุดที่ควรใช้เงินหนัก (All-in zone) หากพื้นฐานยังดี</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.info(f"💡 **AI Note:** แผนนี้คำนวณจากแนวรับ (Support) ร่วมกับค่าความผันผวน (ATR = {entries['atr']:,.2f}) เพื่อกระจายความเสี่ยงอย่างเป็นระบบ")
+            else:
+                st.warning("ข้อมูลไม่เพียงพอสำหรับคำนวณ Entry Strategy")
