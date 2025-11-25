@@ -5,7 +5,7 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from textblob import TextBlob
-from deep_translator import GoogleTranslator
+# from deep_translator import GoogleTranslator # Commented out to reduce errors
 import feedparser
 from bs4 import BeautifulSoup
 import nltk
@@ -83,13 +83,14 @@ st.markdown("""
 
 # --- 2. Data & Analysis Functions ---
 
+# --- FIX: Removed 'ticker' from return to fix UnserializableReturnValueError ---
 @st.cache_data(ttl=1800)
 def get_data(symbol, period, interval):
     try:
         ticker = yf.Ticker(symbol)
         df = ticker.history(period=period, interval=interval)
-        return df, ticker
-    except: return pd.DataFrame(), None
+        return df
+    except: return pd.DataFrame()
 
 def get_fundamentals_safe(ticker):
     """Safely get fundamentals without crashing"""
@@ -141,7 +142,6 @@ def identify_levels(df, window=5, tolerance=0.02):
             if lvl['touches'] >= 3 or (lvl['touches'] >= 2 and is_psy): strength, desc = "Strong", "🔥🔥 แข็งแกร่ง"
             else: strength, desc = "Minor", "☁️ เบาบาง"
             
-            # --- FIX: Syntax Error Fixed Here (Added :) ---
             if abs(price - current_price)/current_price > 0.5 and strength == "Minor":
                 continue
             
@@ -206,14 +206,13 @@ def calculate_tiered_entries(df, sr_levels):
         return {'t1': t1, 't2': t2, 't3': t3, 'atr': atr}
     except: return None
 
-# --- UPDATE: Bloomberg News Function ---
+# --- Bloomberg News Function ---
 @st.cache_data(ttl=3600)
 def get_bloomberg_news(symbol):
     news_list = []
     clean_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
     try:
         # 1. Search specifically for site:bloomberg.com
-        # Using Google News RSS to filter for Bloomberg domain
         q = urllib.parse.quote(f"site:bloomberg.com {clean_sym}")
         rss_url = f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
         feed = feedparser.parse(rss_url)
@@ -226,7 +225,7 @@ def get_bloomberg_news(symbol):
                  'source': 'Bloomberg'
              })
              
-        # 2. Fallback: If Bloomberg has no recent news, get general finance news
+        # 2. Fallback
         if len(news_list) == 0:
              q_gen = urllib.parse.quote(f"{clean_sym} finance news")
              feed_gen = feedparser.parse(f"https://news.google.com/rss/search?q={q_gen}&hl=en-US&gl=US&ceid=US:en")
@@ -300,7 +299,9 @@ symbol = st.session_state.symbol.upper()
 
 if symbol:
     with st.spinner(f'🤖 AI กำลังประมวลผลกลยุทธ์สำหรับ {symbol}...'):
-        df, ticker = get_data(symbol, period, interval)
+        # --- FIX: Call get_data for DF, then instantiate Ticker separately ---
+        df = get_data(symbol, period, interval)
+        ticker = yf.Ticker(symbol) # Create Ticker here instead of returning from cache
     
     if df.empty:
         st.error(f"❌ ไม่พบข้อมูล '{symbol}' หรือ API ถูกจำกัดการเข้าถึง (ลองกด Refresh หรือเปลี่ยนคู่เหรียญ)")
@@ -323,7 +324,7 @@ if symbol:
         setup = calculate_trade_setup(df)
         entries = calculate_tiered_entries(df, sr_levels)
         
-        # Try fetch info (won't crash if fails)
+        # Try fetch info
         info = get_fundamentals_safe(ticker)
 
         # --- Header ---
