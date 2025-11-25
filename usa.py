@@ -21,7 +21,7 @@ except LookupError: nltk.download('punkt')
 
 # --- 1. Setup & Design ---
 st.set_page_config(
-    page_title="Smart Trader AI : Ultra",
+    page_title="Smart Trader AI : Ultra Black",
     layout="wide",
     page_icon="💎",
     initial_sidebar_state="expanded"
@@ -34,7 +34,7 @@ if 'symbol' not in st.session_state:
 def set_symbol(sym):
     st.session_state.symbol = sym
 
-# --- 2. Ultra Premium CSS (Bigger & Better) ---
+# --- 2. Ultra Black CSS ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap');
@@ -44,10 +44,10 @@ st.markdown("""
             font-family: 'Kanit', sans-serif;
         }
         
-        /* Main Background */
+        /* --- 🖤 MAIN BACKGROUND: PURE BLACK --- */
         .stApp {
-            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-            color: #fff;
+            background-color: #000000 !important;
+            color: #ffffff;
         }
 
         /* --- 🔍 HUGE Search Input --- */
@@ -55,12 +55,12 @@ st.markdown("""
             background-color: #ffffff !important; 
             color: #000000 !important; 
             font-weight: 700 !important;
-            font-size: 1.5rem !important; /* ใหญ่ขึ้น */
+            font-size: 1.5rem !important;
             height: 60px !important;
             border: 3px solid #00E5FF !important;
             border-radius: 15px !important;
             padding: 10px 20px !important;
-            box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
         }
         div[data-testid="stTextInput"] label {
             color: #00E5FF !important;
@@ -68,92 +68,91 @@ st.markdown("""
             font-weight: bold;
         }
 
-        /* --- 💎 Glass Cards (Bigger Padding) --- */
+        /* --- 💎 Glass Cards (Adjusted for Black BG) --- */
         .glass-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
+            background: rgba(20, 20, 20, 0.6); /* Darker semi-transparent */
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             border-radius: 25px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 35px; /* เพิ่ม Padding */
+            border: 1px solid rgba(255, 255, 255, 0.15); /* Stronger border */
+            padding: 35px;
             margin-bottom: 30px;
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
-            transition: transform 0.3s ease;
-        }
-        .glass-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(255,255,255,0.3);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.05); /* Subtle white glow */
         }
 
-        /* --- 📊 Stats Box (Larger) --- */
+        /* --- 📊 Stats Box --- */
         .stat-box {
-            background: rgba(0, 0, 0, 0.3);
+            background: #0a0a0a;
             border-radius: 20px;
             padding: 25px;
             text-align: center;
-            border: 2px solid rgba(255,255,255,0.05);
+            border: 1px solid #333;
             margin-bottom: 15px;
         }
         .stat-label { 
-            color: #aaa; 
-            font-size: 1.1rem; /* ใหญ่ขึ้น */ 
+            color: #888; 
+            font-size: 1.1rem; 
             text-transform: uppercase; 
             letter-spacing: 1.5px; 
             margin-bottom: 5px;
         }
         .stat-value { 
-            font-size: 2.5rem; /* ใหญ่สะใจ */ 
+            font-size: 2.5rem; 
             font-weight: 800; 
             color: #fff; 
-            text-shadow: 0 0 10px rgba(255,255,255,0.3);
         }
 
-        /* --- 📰 News Cards (Thai) --- */
+        /* --- 📰 News Cards --- */
         .news-card {
             padding: 25px;
             margin-bottom: 20px;
-            background: rgba(20, 20, 20, 0.6);
+            background: #111;
             border-radius: 18px;
             border-left: 8px solid #888;
+            border-top: 1px solid #222;
+            border-right: 1px solid #222;
+            border-bottom: 1px solid #222;
             transition: all 0.3s;
         }
-        .news-card:hover { transform: scale(1.02); }
-        .nc-pos { border-left-color: #00E676; background: linear-gradient(90deg, rgba(0,230,118,0.1), transparent); }
-        .nc-neg { border-left-color: #FF1744; background: linear-gradient(90deg, rgba(255,23,68,0.1), transparent); }
-        .nc-neu { border-left-color: #FFD600; background: linear-gradient(90deg, rgba(255,214,0,0.1), transparent); }
+        .news-card:hover { transform: scale(1.02); background: #161616; }
+        .nc-pos { border-left-color: #00E676; }
+        .nc-neg { border-left-color: #FF1744; }
+        .nc-neu { border-left-color: #FFD600; }
         
         .news-title { font-size: 1.4rem; font-weight: 600; margin-bottom: 8px; color: #fff; }
-        .news-meta { font-size: 1rem; color: #ccc; }
+        .news-meta { font-size: 1rem; color: #888; }
 
         /* --- 💰 Entry Strategy Box --- */
         .entry-box {
-            background: #1a1a1a;
+            background: #0a0a0a;
             border-radius: 20px;
             padding: 30px;
             border-left: 8px solid #555;
+            border: 1px solid #222;
             margin-bottom: 20px;
-            box-shadow: 5px 5px 20px rgba(0,0,0,0.5);
         }
         .eb-title { font-size: 1.5rem; font-weight: bold; }
         .eb-price { font-size: 2.2rem; font-weight: 800; float: right; }
         .eb-desc { font-size: 1.1rem; color: #aaa; margin-top: 5px; }
 
-        .eb-1 { border-left-color: #00E5FF; }
-        .eb-2 { border-left-color: #FFD600; }
-        .eb-3 { border-left-color: #FF1744; }
+        .eb-1 { border-left-color: #00E5FF; border-left-width: 8px; }
+        .eb-2 { border-left-color: #FFD600; border-left-width: 8px; }
+        .eb-3 { border-left-color: #FF1744; border-left-width: 8px; }
 
         /* Sidebar Buttons */
         div.stButton > button {
             font-size: 1.1rem !important;
             padding: 15px !important;
             border-radius: 15px !important;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: #111;
+            border: 1px solid #333;
+            color: #fff;
         }
         div.stButton > button:hover {
-            background: linear-gradient(90deg, #00E5FF, #2979FF);
-            color: #fff !important;
-            border: none;
+            background: #00E5FF;
+            color: #000 !important;
+            border-color: #00E5FF;
+            font-weight: bold;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -273,7 +272,7 @@ def get_ai_analyzed_news_thai(symbol):
 
 # --- 4. Sidebar ---
 with st.sidebar:
-    st.markdown("<h1 style='text-align: center; color: #00E5FF;'>💎 ULTRA AI</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #00E5FF;'>💎 ULTRA BLACK</h1>", unsafe_allow_html=True)
     st.caption("Ultimate Edition by KRITCHANUT")
     st.markdown("---")
     
@@ -324,20 +323,20 @@ if symbol:
         
         setup = calculate_trade_setup(df)
 
-        # --- HERO SECTION (Ultra Big) ---
+        # --- HERO SECTION (Ultra Big & Black) ---
         color_trend = "#00E676" if change >= 0 else "#FF1744"
         arrow = "▲" if change >= 0 else "▼"
         
         st.markdown(f"""
         <div class="glass-card" style="border-top: 6px solid {color_trend}; text-align: center; padding-top:40px;">
-            <div style="font-size: 1.5rem; color: #aaa; letter-spacing: 3px; text-transform: uppercase;">ASSET ANALYSIS</div>
-            <div style="font-size: 5rem; font-weight: 900; margin: 15px 0; background: -webkit-linear-gradient(45deg, #fff, {color_trend}); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 30px rgba(255,255,255,0.2);">
+            <div style="font-size: 1.5rem; color: #888; letter-spacing: 3px; text-transform: uppercase;">ASSET ANALYSIS</div>
+            <div style="font-size: 5rem; font-weight: 900; margin: 15px 0; background: -webkit-linear-gradient(45deg, #fff, {color_trend}); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
                 {symbol}
             </div>
             <div style="font-size: 4.5rem; font-weight: 800; color: {color_trend}; text-shadow: 0 0 20px {color_trend}40;">
                 {curr_price:,.2f} 
             </div>
-            <div style="color: #ccc; font-size:1.2rem; margin-bottom: 20px;">Price Date: {last_date}</div>
+            <div style="color: #666; font-size:1.2rem; margin-bottom: 20px;">Price Date: {last_date}</div>
             <div style="background: {color_trend}20; padding: 10px 30px; border-radius: 30px; display: inline-block; border: 2px solid {color_trend};">
                 <span style="font-size: 1.8rem; font-weight:bold; color:{color_trend};">
                     {arrow} {abs(change):,.2f} ({pct:+.2f}%)
@@ -392,7 +391,7 @@ if symbol:
                     <span>Range Position</span>
                     <span>High: {high_p:,.2f}</span>
                 </div>
-                <div style="background: #444; height: 15px; border-radius: 10px; margin-top: 15px; position: relative;">
+                <div style="background: #333; height: 15px; border-radius: 10px; margin-top: 15px; position: relative;">
                     <div style="height: 100%; border-radius: 10px; width: {range_pos}%; background: linear-gradient(90deg, #FF1744, #00E676);"></div>
                     <div style="position: absolute; top: -8px; left: {range_pos}%; width: 6px; height: 30px; background: white; border-radius: 3px; box-shadow: 0 0 15px white;"></div>
                 </div>
@@ -436,10 +435,10 @@ if symbol:
                 with c1:
                     st.markdown(f"""
                     <div class="glass-card" style="text-align: center;">
-                        <div style="color: #aaa; font-size:1.2rem;">SIGNAL</div>
+                        <div style="color: #888; font-size:1.2rem;">SIGNAL</div>
                         <div style="font-size: 3rem; font-weight: 800; color: {setup['color']}; text-shadow:0 0 15px {setup['color']};">{setup['signal']}</div>
                         <hr style="border-color: #333; margin:20px 0;">
-                        <div style="color: #aaa; font-size:1.2rem;">TREND</div>
+                        <div style="color: #888; font-size:1.2rem;">TREND</div>
                         <div style="font-size: 1.5rem;">{setup['trend']}</div>
                     </div>
                     """, unsafe_allow_html=True)
