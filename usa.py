@@ -314,6 +314,7 @@ with st.sidebar:
         if st.button("ETH-USD"): set_symbol("ETH-USD")
         if st.button("Gold"): set_symbol("GC=F")
     with c2:
+        # Added THB Pairs as requested
         if st.button("🇹🇭 BTC-THB"): set_symbol("BTC-THB")
         if st.button("🇹🇭 ETH-THB"): set_symbol("ETH-THB")
         if st.button("Oil"): set_symbol("CL=F")
@@ -322,6 +323,11 @@ with st.sidebar:
     chart_type = st.selectbox("รูปแบบกราฟ", ["Candlestick (Standard)", "Heikin Ashi (Trend)"], index=0)
     period = st.select_slider("ย้อนหลัง", options=["1mo", "3mo", "6mo", "1y", "2y", "5y"], value="1y")
     interval = st.selectbox("Timeframe", ["1d", "1wk", "1h"], index=0)
+    
+    # --- ADDED: Developer Credit ---
+    st.markdown("---")
+    st.markdown("### 👨‍💻 Developer")
+    st.markdown("**KRITCHANUT VONGRAT**")
 
 # --- 4. Main Interface ---
 c_search, c_act = st.columns([3, 1])
@@ -418,7 +424,7 @@ if symbol:
                 </div>
                 """, unsafe_allow_html=True)
                 c_en, c_sl, c_tp = st.columns(3)
-                with c_en: st.markdown(f"<div class='setup-box'><div class='setup-label'>🔵 ENTRY PRICE</div><div class='setup-val' style='color:#2979FF'>{setup['entry']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Current Market Price</div></div>", unsafe_allow_html=True)
+                with c_en: st.markdown(f"<div class='setup-box'><div class='setup-label'>🔴 ENTRY PRICE</div><div class='setup-val' style='color:#2979FF'>{setup['entry']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Current Market Price</div></div>", unsafe_allow_html=True)
                 with c_sl: st.markdown(f"<div class='setup-box'><div class='setup-label'>🔴 STOP LOSS</div><div class='setup-val' style='color:#FF1744'>{setup['sl']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Risk Based on ATR ({setup['atr']:,.2f})</div></div>", unsafe_allow_html=True)
                 with c_tp: st.markdown(f"<div class='setup-box'><div class='setup-label'>🟢 TAKE PROFIT</div><div class='setup-val' style='color:#00E676'>{setup['tp']:,.2f}</div><div style='font-size:0.8rem; color:#666;'>Reward Ratio 1:1.5+</div></div>", unsafe_allow_html=True)
 
