@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 from newspaper import Article, Config
 import nltk
 import math
+import urllib.parse  # <--- เพิ่ม Library สำหรับแก้ปัญหา URL
 
 # Config NLTK
 try: nltk.data.find('tokenizers/punkt')
@@ -107,96 +108,88 @@ def calculate_heikin_ashi(df):
 
 # --- Advanced S/R Algorithm ---
 def identify_levels(df, window=5, tolerance=0.02):
-    """
-    Identify S/R levels based on fractals, count touches, and classify strength.
-    """
     levels = []
-    
-    # 1. Find Pivot Highs/Lows
-    for i in range(window, len(df) - window):
-        is_support = df['Low'][i] == df['Low'][i-window:i+window+1].min()
-        is_resistance = df['High'][i] == df['High'][i-window:i+window+1].max()
-        
-        if is_support:
-            levels.append({'price': df['Low'][i], 'type': 'Support', 'score': 1, 'touches': 1})
-        elif is_resistance:
-            levels.append({'price': df['High'][i], 'type': 'Resistance', 'score': 1, 'touches': 1})
+    try:
+        # 1. Find Pivot Highs/Lows
+        for i in range(window, len(df) - window):
+            is_support = df['Low'][i] == df['Low'][i-window:i+window+1].min()
+            is_resistance = df['High'][i] == df['High'][i-window:i+window+1].max()
             
-    # 2. Clustering (Merge close levels)
-    levels.sort(key=lambda x: x['price'])
-    merged_levels = []
-    
-    if not levels: return []
-    
-    curr = levels[0]
-    for next_lvl in levels[1:]:
-        # If prices are within tolerance %
-        if abs(next_lvl['price'] - curr['price']) / curr['price'] < tolerance:
-            # Merge: Weighted average based on touches
-            total_touches = curr['touches'] + next_lvl['touches']
-            new_price = ((curr['price'] * curr['touches']) + (next_lvl['price'] * next_lvl['touches'])) / total_touches
+            if is_support:
+                levels.append({'price': df['Low'][i], 'type': 'Support', 'score': 1, 'touches': 1})
+            elif is_resistance:
+                levels.append({'price': df['High'][i], 'type': 'Resistance', 'score': 1, 'touches': 1})
+                
+        # 2. Clustering
+        levels.sort(key=lambda x: x['price'])
+        merged_levels = []
+        
+        if not levels: return []
+        
+        curr = levels[0]
+        for next_lvl in levels[1:]:
+            if abs(next_lvl['price'] - curr['price']) / curr['price'] < tolerance:
+                total_touches = curr['touches'] + next_lvl['touches']
+                new_price = ((curr['price'] * curr['touches']) + (next_lvl['price'] * next_lvl['touches'])) / total_touches
+                curr['price'] = new_price
+                curr['touches'] = total_touches
+            else:
+                merged_levels.append(curr)
+                curr = next_lvl
+        merged_levels.append(curr)
+        
+        # 3. Classification
+        final_levels = []
+        current_price = df['Close'].iloc[-1]
+        
+        for lvl in merged_levels:
+            price = lvl['price']
+            touches = lvl['touches']
             
-            curr['price'] = new_price
-            curr['touches'] = total_touches
-            # If types conflict, the one with more recent/more touches wins, or keep current
-        else:
-            merged_levels.append(curr)
-            curr = next_lvl
-    merged_levels.append(curr)
-    
-    # 3. Classification Logic
-    final_levels = []
-    current_price = df['Close'].iloc[-1]
-    
-    for lvl in merged_levels:
-        price = lvl['price']
-        touches = lvl['touches']
-        
-        # Determine if Psychological (ends in 00, 000, 50 etc based on magnitude)
-        magnitude = 10 ** int(math.log10(price))
-        is_psy = False
-        if price > 1000:
-            if abs(price % 1000) < 10 or abs(price % 1000) > 990: is_psy = True # e.g., 65000
-        elif price > 100:
-            if abs(price % 100) < 1 or abs(price % 100) > 99: is_psy = True
+            magnitude = 10 ** int(math.log10(price)) if price > 0 else 1
+            is_psy = False
+            if price > 1000:
+                if abs(price % 1000) < 10 or abs(price % 1000) > 990: is_psy = True
+            elif price > 100:
+                if abs(price % 100) < 1 or abs(price % 100) > 99: is_psy = True
+                
+            strength = "Weak"
+            desc = "แนวรับ/ต้านย่อย"
             
-        # Determine Strength
-        strength = "Weak"
-        desc = "แนวรับ/ต้านย่อย"
-        
-        if touches >= 3 or (touches >= 2 and is_psy):
-            strength = "Strong"
-            desc = "🔥🔥 แข็งแกร่ง (Strong Zone)"
-        elif is_psy:
-            strength = "Psychological"
-            desc = "🧠 จิตวิทยา (Round Number)"
-        else:
-            strength = "Minor"
-            desc = "☁️ เบาบาง (Minor)"
+            if touches >= 3 or (touches >= 2 and is_psy):
+                strength = "Strong"
+                desc = "🔥🔥 แข็งแกร่ง (Strong Zone)"
+            elif is_psy:
+                strength = "Psychological"
+                desc = "🧠 จิตวิทยา (Round Number)"
+            else:
+                strength = "Minor"
+                desc = "☁️ เบาบาง (Minor)"
 
-        # Filter noise: Ignore very weak levels far from price
-        if abs(price - current_price) / current_price > 0.5 and strength == "Minor":
-            continue
+            if abs(price - current_price) / current_price > 0.5 and strength == "Minor":
+                continue
 
-        lvl['strength'] = strength
-        lvl['desc'] = desc
-        final_levels.append(lvl)
-        
-    return final_levels
+            lvl['strength'] = strength
+            lvl['desc'] = desc
+            final_levels.append(lvl)
+            
+        return final_levels
+    except: return []
 
-# --- Bloomberg News via Google RSS ---
+# --- Bloomberg News via Google RSS (Fixed) ---
 @st.cache_data(ttl=1800)
 def get_bloomberg_news(symbol):
-    # 1. Build query tailored for Bloomberg results
-    clean_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
-    query = f"site:bloomberg.com {clean_sym} market OR {clean_sym} price analysis"
-    rss_url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
-    
     news_list = []
+    clean_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
+    
+    # 1. Bloomberg Query (Encoded)
     try:
+        raw_query = f"site:bloomberg.com {clean_sym} market OR {clean_sym} price analysis"
+        encoded_query = urllib.parse.quote(raw_query) # <--- แก้ไขจุดที่ 1: Encode URL
+        rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
+        
         feed = feedparser.parse(rss_url)
         for item in feed.entries[:6]:
-            # Google RSS links need decoding or just use as is (redirects)
             news_list.append({
                 'title': item.title,
                 'link': item.link,
@@ -205,31 +198,33 @@ def get_bloomberg_news(symbol):
                 'summary': item.description
             })
     except Exception as e:
-        print(e)
+        print(f"Error fetching Bloomberg: {e}")
         
-    # Fallback: If Bloomberg specific yields nothing, get general high-quality finance news
+    # 2. Fallback (Encoded)
     if len(news_list) < 2:
-        query_bk = f"{clean_sym} finance news"
-        rss_bk = f"https://news.google.com/rss/search?q={query_bk}&hl=en-US&gl=US&ceid=US:en"
-        feed_bk = feedparser.parse(rss_bk)
-        for item in feed_bk.entries[:4]:
-             news_list.append({
-                'title': item.title,
-                'link': item.link,
-                'pubDate': item.published,
-                'source': item.source.title if 'source' in item else 'News',
-                'summary': item.description
-            })
+        try:
+            raw_query_bk = f"{clean_sym} finance news"
+            encoded_query_bk = urllib.parse.quote(raw_query_bk) # <--- แก้ไขจุดที่ 2: Encode URL
+            rss_bk = f"https://news.google.com/rss/search?q={encoded_query_bk}&hl=en-US&gl=US&ceid=US:en"
+            
+            feed_bk = feedparser.parse(rss_bk)
+            for item in feed_bk.entries[:4]:
+                 news_list.append({
+                    'title': item.title,
+                    'link': item.link,
+                    'pubDate': item.published,
+                    'source': item.source.title if 'source' in item else 'News',
+                    'summary': item.description
+                })
+        except: pass
             
     return news_list
 
 def translate_and_summarize(text, title):
-    # Due to limits, we just translate the title and a short summary
     try:
         translator = GoogleTranslator(source='auto', target='th')
         th_title = translator.translate(title)
         
-        # Remove HTML tags from summary
         soup = BeautifulSoup(text, "html.parser")
         clean_text = soup.get_text()[:300] + "..."
         th_sum = translator.translate(clean_text)
@@ -300,7 +295,6 @@ if symbol:
         rs = gain / loss
         df['RSI'] = 100 - (100 / (1 + rs))
         
-        # S/R Analysis
         sr_levels = identify_levels(df)
         
         # Display Header
@@ -322,7 +316,6 @@ if symbol:
         with t1:
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.7, 0.3])
             
-            # Chart Type Logic
             if "Heikin" in chart_type:
                 plot_df = calculate_heikin_ashi(df)
                 o, h, l, c = plot_df['HA_Open'], plot_df['HA_High'], plot_df['HA_Low'], plot_df['HA_Close']
@@ -335,20 +328,18 @@ if symbol:
             fig.add_trace(go.Candlestick(x=df.index, open=o, high=h, low=l, close=c, name='Price',
                                          increasing_line_color=c_inc, decreasing_line_color=c_dec), row=1, col=1)
             
-            # EMAs
             fig.add_trace(go.Scatter(x=df.index, y=df['EMA50'], line=dict(color='#2979FF', width=1), name='EMA 50'), row=1, col=1)
             fig.add_trace(go.Scatter(x=df.index, y=df['EMA200'], line=dict(color='#FF9100', width=1), name='EMA 200'), row=1, col=1)
             
             # Plot Significant S/R on Chart
             for lvl in sr_levels:
-                if abs(lvl['price'] - current_price) / current_price < 0.2: # Show only nearby levels
+                if abs(lvl['price'] - current_price) / current_price < 0.2: 
                     color = 'rgba(0, 230, 118, 0.5)' if lvl['type'] == 'Support' else 'rgba(255, 23, 68, 0.5)'
                     width = 2 if lvl['strength'] == 'Strong' else 1
                     dash = 'solid' if lvl['strength'] == 'Strong' else 'dash'
                     
                     fig.add_hline(y=lvl['price'], line_dash=dash, line_color=color, line_width=width, row=1, col=1)
             
-            # RSI
             fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#AB47BC', width=1.5), name='RSI'), row=2, col=1)
             fig.add_hline(y=70, line_color='red', line_dash='dot', row=2, col=1)
             fig.add_hline(y=30, line_color='green', line_dash='dot', row=2, col=1)
@@ -365,12 +356,12 @@ if symbol:
             
             col_res, col_sup = st.columns(2)
             
-            # Filter levels
             res_levels = sorted([l for l in sr_levels if l['price'] > current_price], key=lambda x: x['price'])[:5]
             sup_levels = sorted([l for l in sr_levels if l['price'] < current_price], key=lambda x: x['price'], reverse=True)[:5]
             
             with col_res:
                 st.error("🟥 แนวต้าน (Resistance)")
+                if not res_levels: st.write("- ไม่พบแนวต้านใกล้เคียง -")
                 for r in reversed(res_levels):
                     tag_class = "sr-strong" if r['strength']=="Strong" else "sr-psy" if r['strength']=="Psychological" else "sr-weak"
                     st.markdown(f"""
@@ -382,6 +373,7 @@ if symbol:
                     
             with col_sup:
                 st.success("🟩 แนวรับ (Support)")
+                if not sup_levels: st.write("- ไม่พบแนวรับใกล้เคียง -")
                 for s in sup_levels:
                     tag_class = "sr-strong" if s['strength']=="Strong" else "sr-psy" if s['strength']=="Psychological" else "sr-weak"
                     buy_msg = "🛒 จุดเข้าซื้อได้" if s['strength'] == "Strong" else ""
@@ -410,32 +402,4 @@ if symbol:
                         <div style="font-size:0.9rem; color:#aaa; margin-top:5px;">{th_sum}</div>
                         <div style="margin-top:10px; font-size:0.8rem; display:flex; justify-content:space-between;">
                             <span style="color:#2962FF;">Source: {item['source']}</span>
-                            <a href="{item['link']}" target="_blank" style="color:#00E676; text-decoration:none;">อ่านต่อฉบับเต็ม 🔗</a>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-        with t4:
-            info = ticker.info
-            st.markdown("<div class='section-header'>📊 Fundamental & Key Stats</div>", unsafe_allow_html=True)
-            
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Market Cap", f"{info.get('marketCap', 0):,}")
-            with col2:
-                st.metric("PE Ratio", f"{info.get('trailingPE', 0):.2f}")
-            with col3:
-                st.metric("52 Week High", f"{info.get('fiftyTwoWeekHigh', 0):,.2f}")
-            with col4:
-                st.metric("52 Week Low", f"{info.get('fiftyTwoWeekLow', 0):,.2f}")
-                
-            st.markdown("---")
-            st.markdown(f"**Business Summary:** {info.get('longBusinessSummary', 'No summary available.')[:500]}...")
-
-# --- Footer ---
-st.markdown("""
-    <div style="text-align:center; margin-top:50px; color:#666; border-top:1px solid #333; padding-top:20px;">
-        Smart Trader AI Pro Max © 2024 | Designed for Precision Trading<br>
-        <small>Data delayed by 15 mins. Investment involves risk.</small>
-    </div>
-""", unsafe_allow_html=True)
+                            <a href="{item['link']}" ta
