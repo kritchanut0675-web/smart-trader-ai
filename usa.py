@@ -444,7 +444,7 @@ if symbol:
             else: score_color = "#FFD600"
             st.markdown(f"""<div class="ai-card" style="text-align:center; border-color:{score_color};"><div class="ai-score-circle" style="border-color:{score_color}; color:{score_color};">{ai_score}</div><div style="font-size:2rem; font-weight:bold; color:{score_color};">{ai_verdict}</div><p>{ai_text}</p></div>""", unsafe_allow_html=True)
             
-        # Tab 7: S/R Dynamics (COMPLETE)
+        # Tab 7: S/R Dynamics (FIXED HTML FORMATTING)
         with tabs[6]:
             pivots = calculate_pivot_points(df)
             dynamic = calculate_dynamic_levels(df)
@@ -454,25 +454,26 @@ if symbol:
             with col_static:
                 st.markdown("### 🧱 Static Levels (Pivot Points)")
                 if pivots:
+                    # FIX: Use left-aligned multiline string to avoid code block rendering
                     st.markdown(f"""
-                    <div style="display:flex; flex-direction:column; gap:8px;">
-                        <div style="background:#220a0a; border:1px solid #FF1744; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
-                            <span style="color:#FF1744; font-weight:bold;">R2 (ต้านแข็ง)</span> <span style="font-weight:bold;">{pivots['R2']:,.2f}</span>
-                        </div>
-                        <div style="background:#221111; border:1px solid #FF5252; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
-                            <span style="color:#FF5252; font-weight:bold;">R1 (ต้านแรก)</span> <span style="font-weight:bold;">{pivots['R1']:,.2f}</span>
-                        </div>
-                        <div style="background:#1a1a1a; border:1px solid #FFD600; padding:15px; border-radius:10px; display:flex; justify-content:space-between; transform:scale(1.02); box-shadow:0 0 10px rgba(255,214,0,0.2);">
-                            <span style="color:#FFD600; font-weight:bold;">PIVOT (จุดหมุน)</span> <span style="font-weight:bold;">{pivots['PP']:,.2f}</span>
-                        </div>
-                        <div style="background:#0a1a11; border:1px solid #69F0AE; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
-                            <span style="color:#69F0AE; font-weight:bold;">S1 (รับแรก)</span> <span style="font-weight:bold;">{pivots['S1']:,.2f}</span>
-                        </div>
-                        <div style="background:#0a2215; border:1px solid #00E676; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
-                            <span style="color:#00E676; font-weight:bold;">S2 (รับแข็ง)</span> <span style="font-weight:bold;">{pivots['S2']:,.2f}</span>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+<div style="display:flex; flex-direction:column; gap:8px;">
+<div style="background:#220a0a; border:1px solid #FF1744; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
+<span style="color:#FF1744; font-weight:bold;">R2 (ต้านแข็ง)</span> <span style="font-weight:bold;">{pivots['R2']:,.2f}</span>
+</div>
+<div style="background:#221111; border:1px solid #FF5252; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
+<span style="color:#FF5252; font-weight:bold;">R1 (ต้านแรก)</span> <span style="font-weight:bold;">{pivots['R1']:,.2f}</span>
+</div>
+<div style="background:#1a1a1a; border:1px solid #FFD600; padding:15px; border-radius:10px; display:flex; justify-content:space-between; transform:scale(1.02); box-shadow:0 0 10px rgba(255,214,0,0.2);">
+<span style="color:#FFD600; font-weight:bold;">PIVOT (จุดหมุน)</span> <span style="font-weight:bold;">{pivots['PP']:,.2f}</span>
+</div>
+<div style="background:#0a1a11; border:1px solid #69F0AE; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
+<span style="color:#69F0AE; font-weight:bold;">S1 (รับแรก)</span> <span style="font-weight:bold;">{pivots['S1']:,.2f}</span>
+</div>
+<div style="background:#0a2215; border:1px solid #00E676; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
+<span style="color:#00E676; font-weight:bold;">S2 (รับแข็ง)</span> <span style="font-weight:bold;">{pivots['S2']:,.2f}</span>
+</div>
+</div>
+""", unsafe_allow_html=True)
 
             with col_dynamic:
                 st.markdown("### 🌊 Dynamic Levels (Moving Avgs)")
@@ -494,26 +495,16 @@ if symbol:
                         ("BB Lower", dynamic['BB Lower'])
                     ]
                     
-                    # Sort by price descending to mimic chart verticality
                     dyn_items.sort(key=lambda x: x[1], reverse=True)
                     
+                    # FIX: Construct HTML string without indentation to avoid Markdown Code Blocks
                     html_dyn = "<div style='display:flex; flex-direction:column; gap:10px;'>"
                     for name, val in dyn_items:
                         role, color, pct = get_status(curr, val)
                         border_color = color
-                        bg_color = f"{color}10" # 10% opacity
+                        bg_color = f"{color}10"
                         
-                        html_dyn += f"""
-                        <div style="background:{bg_color}; border-left:5px solid {border_color}; padding:15px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <div style="font-size:0.8rem; color:#888;">{name}</div>
-                                <div style="font-size:1.2rem; font-weight:bold;">{val:,.2f}</div>
-                            </div>
-                            <div style="text-align:right;">
-                                <div style="font-size:0.9rem; font-weight:bold; color:{color};">{role}</div>
-                                <div style="font-size:0.8rem; color:#ccc;">Dist: {pct}</div>
-                            </div>
-                        </div>
-                        """
+                        html_dyn += f"<div style='background:{bg_color}; border-left:5px solid {border_color}; padding:15px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;'><div><div style='font-size:0.8rem; color:#888;'>{name}</div><div style='font-size:1.2rem; font-weight:bold;'>{val:,.2f}</div></div><div style='text-align:right;'><div style='font-size:0.9rem; font-weight:bold; color:{color};'>{role}</div><div style='font-size:0.8rem; color:#ccc;'>Dist: {pct}</div></div></div>"
+                    
                     html_dyn += "</div>"
                     st.markdown(html_dyn, unsafe_allow_html=True)
