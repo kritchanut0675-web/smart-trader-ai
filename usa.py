@@ -101,7 +101,6 @@ st.markdown("""
 
 # --- 3. Data & Analysis Functions ---
 
-# --- FIX: Cache only DataFrame (Serializable) ---
 @st.cache_data(ttl=300)
 def get_market_data(symbol, period, interval):
     try:
@@ -179,7 +178,9 @@ def identify_sr_levels(df):
             filtered.append(curr)
         return filtered
     except: return []
-        def calculate_pivot_points(df):
+
+# --- NEW FUNCTIONS: Pivot Points & Dynamic Levels ---
+def calculate_pivot_points(df):
     try:
         # ใช้ข้อมูลแท่งก่อนหน้า (Yesterday)
         prev = df.iloc[-2]
@@ -364,8 +365,8 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
 
-        # --- 6 TABS (Removed Guru Tab) ---
-        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 S/R & Setup", "💰 Entry", "🤖 AI Verdict"])
+        # --- TABS (Updated with New Tab) ---
+        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 S/R & Setup", "💰 Entry", "🤖 AI Verdict", "🛡️ S/R Dynamics"])
 
         # Tab 1: Chart
         with tabs[0]:
@@ -390,7 +391,7 @@ if symbol:
             c2.markdown(f"""<div class="stat-box"><div class="stat-label">Low</div><div class="stat-value" style="color:#FF1744;">{df['Low'].min():,.2f}</div></div>""", unsafe_allow_html=True)
             c3.markdown(f"""<div class="stat-box"><div class="stat-label">Vol</div><div class="stat-value" style="color:#E040FB;">{df['Volume'].iloc[-1]/1e6:.1f}M</div></div>""", unsafe_allow_html=True)
 
-        # Tab 3: AI News (Enhanced)
+        # Tab 3: AI News
         with tabs[2]:
             st.markdown("### 📰 AI Sentiment Analysis (วิเคราะห์อารมณ์ข่าว)")
             if news_list:
@@ -435,11 +436,84 @@ if symbol:
             st.markdown(f"""<div style="background:#111; padding:20px; border-left:5px solid #FFD600; margin-bottom:10px; font-size:1.2rem;"><b>Accumulate (30%):</b> {t2:,.2f}</div>""", unsafe_allow_html=True)
             st.markdown(f"""<div style="background:#111; padding:20px; border-left:5px solid #FF1744; font-size:1.2rem;"><b>Sniper Zone (50%):</b> {t3:,.2f}</div>""", unsafe_allow_html=True)
 
-        # Tab 6: AI Verdict (Restored without Guru)
+        # Tab 6: AI Verdict
         with tabs[5]:
             st.markdown("### 🤖 AI Market Analysis")
             if ai_score >= 70: score_color = "#00E676"
             elif ai_score <= 30: score_color = "#FF1744"
             else: score_color = "#FFD600"
             st.markdown(f"""<div class="ai-card" style="text-align:center; border-color:{score_color};"><div class="ai-score-circle" style="border-color:{score_color}; color:{score_color};">{ai_score}</div><div style="font-size:2rem; font-weight:bold; color:{score_color};">{ai_verdict}</div><p>{ai_text}</p></div>""", unsafe_allow_html=True)
+            
+        # Tab 7: S/R Dynamics (COMPLETE)
+        with tabs[6]:
+            pivots = calculate_pivot_points(df)
+            dynamic = calculate_dynamic_levels(df)
+            
+            col_static, col_dynamic = st.columns(2)
+            
+            with col_static:
+                st.markdown("### 🧱 Static Levels (Pivot Points)")
+                if pivots:
+                    st.markdown(f"""
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <div style="background:#220a0a; border:1px solid #FF1744; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
+                            <span style="color:#FF1744; font-weight:bold;">R2 (ต้านแข็ง)</span> <span style="font-weight:bold;">{pivots['R2']:,.2f}</span>
+                        </div>
+                        <div style="background:#221111; border:1px solid #FF5252; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
+                            <span style="color:#FF5252; font-weight:bold;">R1 (ต้านแรก)</span> <span style="font-weight:bold;">{pivots['R1']:,.2f}</span>
+                        </div>
+                        <div style="background:#1a1a1a; border:1px solid #FFD600; padding:15px; border-radius:10px; display:flex; justify-content:space-between; transform:scale(1.02); box-shadow:0 0 10px rgba(255,214,0,0.2);">
+                            <span style="color:#FFD600; font-weight:bold;">PIVOT (จุดหมุน)</span> <span style="font-weight:bold;">{pivots['PP']:,.2f}</span>
+                        </div>
+                        <div style="background:#0a1a11; border:1px solid #69F0AE; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
+                            <span style="color:#69F0AE; font-weight:bold;">S1 (รับแรก)</span> <span style="font-weight:bold;">{pivots['S1']:,.2f}</span>
+                        </div>
+                        <div style="background:#0a2215; border:1px solid #00E676; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
+                            <span style="color:#00E676; font-weight:bold;">S2 (รับแข็ง)</span> <span style="font-weight:bold;">{pivots['S2']:,.2f}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
+            with col_dynamic:
+                st.markdown("### 🌊 Dynamic Levels (Moving Avgs)")
+                if dynamic:
+                    curr = dynamic['Current']
+                    
+                    def get_status(price, level):
+                        diff = ((price - level) / level) * 100
+                        if price > level:
+                            return "SUPPORT (รับ)", "#00E676", f"+{diff:.2f}%"
+                        else:
+                            return "RESIST (ต้าน)", "#FF1744", f"{diff:.2f}%"
+
+                    dyn_items = [
+                        ("BB Upper", dynamic['BB Upper']),
+                        ("EMA 20", dynamic['EMA 20']),
+                        ("EMA 50", dynamic['EMA 50']),
+                        ("EMA 200", dynamic['EMA 200']),
+                        ("BB Lower", dynamic['BB Lower'])
+                    ]
+                    
+                    # Sort by price descending to mimic chart verticality
+                    dyn_items.sort(key=lambda x: x[1], reverse=True)
+                    
+                    html_dyn = "<div style='display:flex; flex-direction:column; gap:10px;'>"
+                    for name, val in dyn_items:
+                        role, color, pct = get_status(curr, val)
+                        border_color = color
+                        bg_color = f"{color}10" # 10% opacity
+                        
+                        html_dyn += f"""
+                        <div style="background:{bg_color}; border-left:5px solid {border_color}; padding:15px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-size:0.8rem; color:#888;">{name}</div>
+                                <div style="font-size:1.2rem; font-weight:bold;">{val:,.2f}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:0.9rem; font-weight:bold; color:{color};">{role}</div>
+                                <div style="font-size:0.8rem; color:#ccc;">Dist: {pct}</div>
+                            </div>
+                        </div>
+                        """
+                    html_dyn += "</div>"
+                    st.markdown(html_dyn, unsafe_allow_html=True)
