@@ -70,6 +70,15 @@ st.markdown("""
         .stat-label { color: #888; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px; }
         .stat-value { font-size: 2.5rem; font-weight: 800; color: #fff; }
 
+        /* FUNDAMENTAL BOX */
+        .fund-box { 
+            background: #111; border: 1px solid #444; border-radius: 15px; padding: 20px; 
+            margin-bottom: 10px; position: relative; overflow: hidden;
+        }
+        .fund-title { font-size: 1rem; color: #aaa; margin-bottom: 5px; text-transform: uppercase; }
+        .fund-val { font-size: 1.8rem; font-weight: bold; color: #fff; }
+        .fund-desc { font-size: 0.9rem; color: #888; margin-top: 5px; }
+
         /* NEWS CARD */
         .news-card { padding: 20px; margin-bottom: 15px; background: #111; border-radius: 15px; border-left: 6px solid #888; transition: transform 0.2s; }
         .news-card:hover { transform: scale(1.01); background: #161616; }
@@ -108,6 +117,14 @@ def get_market_data(symbol, period, interval):
         df = ticker.history(period=period, interval=interval)
         return df
     except: return pd.DataFrame()
+
+# --- NEW: Get Fundamental Info ---
+@st.cache_data(ttl=3600)
+def get_stock_info(symbol):
+    try:
+        ticker = yf.Ticker(symbol)
+        return ticker.info
+    except: return None
 
 def calculate_heikin_ashi(df):
     ha_df = df.copy()
@@ -179,46 +196,34 @@ def identify_sr_levels(df):
         return filtered
     except: return []
 
-# --- NEW FUNCTIONS: Pivot Points & Dynamic Levels ---
 def calculate_pivot_points(df):
     try:
-        # ใช้ข้อมูลแท่งก่อนหน้า (Yesterday)
         prev = df.iloc[-2]
         high, low, close = prev['High'], prev['Low'], prev['Close']
-        
-        # Standard Pivot Formula
         pp = (high + low + close) / 3
         r1 = (2 * pp) - low
         s1 = (2 * pp) - high
         r2 = pp + (high - low)
         s2 = pp - (high - low)
-        
         return {"PP": pp, "R1": r1, "S1": s1, "R2": r2, "S2": s2}
-    except:
-        return None
+    except: return None
 
 def calculate_dynamic_levels(df):
     try:
         close = df['Close'].iloc[-1]
-        
-        # EMA (Dynamic)
         ema20 = df['Close'].ewm(span=20).mean().iloc[-1]
         ema50 = df['Close'].ewm(span=50).mean().iloc[-1]
         ema200 = df['Close'].ewm(span=200).mean().iloc[-1]
-        
-        # Bollinger Bands (Dynamic Volatility)
         sma20 = df['Close'].rolling(window=20).mean().iloc[-1]
         std = df['Close'].rolling(window=20).std().iloc[-1]
         bb_upper = sma20 + (2 * std)
         bb_lower = sma20 - (2 * std)
-        
         return {
             "EMA 20": ema20, "EMA 50": ema50, "EMA 200": ema200,
             "BB Upper": bb_upper, "BB Lower": bb_lower,
             "Current": close
         }
-    except:
-        return None
+    except: return None
 
 # --- AI News Analysis (Thai) ---
 @st.cache_data(ttl=3600)
@@ -265,7 +270,7 @@ def get_ai_analyzed_news_thai(symbol):
     except: pass
     return news_list
 
-# --- AI Verdict Logic (Technicals + News Only) ---
+# --- AI Verdict Logic ---
 def generate_ai_analysis(df, setup, news_list):
     analysis_text = ""
     score = 50
@@ -336,6 +341,7 @@ symbol = st.session_state.symbol.upper()
 if symbol:
     with st.spinner('💎 AI กำลังประมวลผลข้อมูล...'):
         df = get_market_data(symbol, period, "1d")
+        info = get_stock_info(symbol)
         
     if df.empty:
         st.error(f"❌ ไม่พบข้อมูล '{symbol}'")
@@ -349,7 +355,6 @@ if symbol:
         news_list = get_ai_analyzed_news_thai(symbol)
         sr_levels = identify_sr_levels(df)
         
-        # Verdict calculation (without Guru)
         ai_text, ai_score, ai_verdict = generate_ai_analysis(df, setup, news_list)
 
         # --- HERO HEADER ---
@@ -365,8 +370,8 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
 
-        # --- TABS (Updated with New Tab) ---
-        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 S/R & Setup", "💰 Entry", "🤖 AI Verdict", "🛡️ S/R Dynamics"])
+        # --- TABS ---
+        tabs = st.tabs(["📈 Chart", "📊 Stats & Funda", "📰 AI News", "🎯 S/R & Setup", "💰 Entry", "🤖 AI Verdict", "🛡️ S/R Dynamics"])
 
         # Tab 1: Chart
         with tabs[0]:
@@ -384,12 +389,115 @@ if symbol:
             fig.update_layout(height=600, template='plotly_dark', margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
 
-        # Tab 2: Stats
+        # Tab 2: Stats & Fundamentals (NEW DESIGN)
         with tabs[1]:
+            # Basic Price Stats
             c1, c2, c3 = st.columns(3)
             c1.markdown(f"""<div class="stat-box"><div class="stat-label">High</div><div class="stat-value" style="color:#00E676;">{df['High'].max():,.2f}</div></div>""", unsafe_allow_html=True)
             c2.markdown(f"""<div class="stat-box"><div class="stat-label">Low</div><div class="stat-value" style="color:#FF1744;">{df['Low'].min():,.2f}</div></div>""", unsafe_allow_html=True)
             c3.markdown(f"""<div class="stat-box"><div class="stat-label">Vol</div><div class="stat-value" style="color:#E040FB;">{df['Volume'].iloc[-1]/1e6:.1f}M</div></div>""", unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            # --- Business Info ---
+            if info:
+                sector = info.get('sector', 'N/A')
+                industry = info.get('industry', 'N/A')
+                summary = info.get('longBusinessSummary', 'No description available.')
+                
+                # Try Translate Summary
+                summary_th = summary
+                if HAS_TRANSLATOR:
+                    try:
+                        translator = GoogleTranslator(source='auto', target='th')
+                        # Cut text if too long to speed up
+                        summary_th = translator.translate(summary[:4500])
+                    except: pass
+                
+                st.markdown(f"### 🏢 Business Profile: {sector} / {industry}")
+                with st.expander("อ่านรายละเอียดธุรกิจ (Business Summary)", expanded=True):
+                    st.write(summary_th)
+            
+                st.markdown("### 📊 Fundamental Valuation")
+                
+                # Fetch Data
+                pe = info.get('trailingPE')
+                eps = info.get('trailingEps')
+                peg = info.get('pegRatio')
+                
+                col_f1, col_f2, col_f3 = st.columns(3)
+                
+                # 1. EPS Box
+                with col_f1:
+                    eps_val = f"{eps:.2f}" if eps else "N/A"
+                    eps_color = "#00E676" if eps and eps > 0 else "#FF1744"
+                    st.markdown(f"""
+                        <div class="fund-box" style="border-left: 5px solid {eps_color};">
+                            <div class="fund-title">EPS (กำไรต่อหุ้น)</div>
+                            <div class="fund-val">{eps_val}</div>
+                            <div class="fund-desc">Earnings Per Share</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                # 2. P/E Box & Interpretation
+                with col_f2:
+                    pe_val = f"{pe:.2f}" if pe else "N/A"
+                    
+                    # Logic: ประเมิน PE เทียบกับเกณฑ์มาตรฐาน (Since free API can't fetch industry avg easily)
+                    # General Rule: <15 Cheap, 15-25 Fair, >25 Expensive (Depends on Growth)
+                    # We use PEG to refine if possible.
+                    
+                    pe_status = "N/A"
+                    pe_color = "#888"
+                    
+                    if pe:
+                        if pe < 15:
+                            pe_status = "Undervalued (ถูก)"
+                            pe_color = "#00E676"
+                        elif pe > 30:
+                            pe_status = "Overvalued (แพง)"
+                            pe_color = "#FF1744"
+                        else:
+                            pe_status = "Fair Price (เหมาะสม)"
+                            pe_color = "#FFD600"
+                            
+                    st.markdown(f"""
+                        <div class="fund-box" style="border-left: 5px solid {pe_color};">
+                            <div class="fund-title">P/E Ratio</div>
+                            <div class="fund-val">{pe_val}</div>
+                            <div class="fund-desc" style="color:{pe_color}; font-weight:bold;">{pe_status}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                # 3. Industry Comparison / PEG
+                with col_f3:
+                    # PEG < 1 = Undervalued (Growth is cheap)
+                    peg_val = f"{peg:.2f}" if peg else "N/A"
+                    peg_status = ""
+                    peg_color = "#888"
+                    
+                    if peg:
+                        if peg < 1: 
+                            peg_status = "Growth is Cheap (น่าสนใจ)"
+                            peg_color = "#00E676"
+                        elif peg > 2:
+                            peg_status = "Growth is Pricey (ตึงตัว)"
+                            peg_color = "#FF1744"
+                        else:
+                            peg_status = "Reasonable (สมเหตุสมผล)"
+                            peg_color = "#FFD600"
+
+                    st.markdown(f"""
+                        <div class="fund-box" style="border-left: 5px solid {peg_color};">
+                            <div class="fund-title">PEG Ratio (เทียบการเติบโต)</div>
+                            <div class="fund-val">{peg_val}</div>
+                            <div class="fund-desc" style="color:{peg_color};">{peg_status}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                st.caption("*หมายเหตุ: การประเมิน P/E เทียบกับเกณฑ์มาตรฐานทั่วไป ควรพิจารณาร่วมกับ PEG Ratio (เทียบการเติบโต) และปัจจัยเฉพาะอุตสาหกรรม")
+            else:
+                st.info("ไม่พบข้อมูลพื้นฐาน (Fundamental Data) สำหรับสินทรัพย์นี้ (อาจเป็น Crypto หรือ Commodity)")
 
         # Tab 3: AI News
         with tabs[2]:
@@ -444,7 +552,7 @@ if symbol:
             else: score_color = "#FFD600"
             st.markdown(f"""<div class="ai-card" style="text-align:center; border-color:{score_color};"><div class="ai-score-circle" style="border-color:{score_color}; color:{score_color};">{ai_score}</div><div style="font-size:2rem; font-weight:bold; color:{score_color};">{ai_verdict}</div><p>{ai_text}</p></div>""", unsafe_allow_html=True)
             
-        # Tab 7: S/R Dynamics (COMPLETE)
+        # Tab 7: S/R Dynamics
         with tabs[6]:
             pivots = calculate_pivot_points(df)
             dynamic = calculate_dynamic_levels(df)
@@ -455,36 +563,33 @@ if symbol:
                 st.markdown("### 🧱 Static Levels (Pivot Points)")
                 if pivots:
                     st.markdown(f"""
-                    <div style="display:flex; flex-direction:column; gap:8px;">
-                        <div style="background:#220a0a; border:1px solid #FF1744; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
-                            <span style="color:#FF1744; font-weight:bold;">R2 (ต้านแข็ง)</span> <span style="font-weight:bold;">{pivots['R2']:,.2f}</span>
-                        </div>
-                        <div style="background:#221111; border:1px solid #FF5252; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
-                            <span style="color:#FF5252; font-weight:bold;">R1 (ต้านแรก)</span> <span style="font-weight:bold;">{pivots['R1']:,.2f}</span>
-                        </div>
-                        <div style="background:#1a1a1a; border:1px solid #FFD600; padding:15px; border-radius:10px; display:flex; justify-content:space-between; transform:scale(1.02); box-shadow:0 0 10px rgba(255,214,0,0.2);">
-                            <span style="color:#FFD600; font-weight:bold;">PIVOT (จุดหมุน)</span> <span style="font-weight:bold;">{pivots['PP']:,.2f}</span>
-                        </div>
-                        <div style="background:#0a1a11; border:1px solid #69F0AE; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
-                            <span style="color:#69F0AE; font-weight:bold;">S1 (รับแรก)</span> <span style="font-weight:bold;">{pivots['S1']:,.2f}</span>
-                        </div>
-                        <div style="background:#0a2215; border:1px solid #00E676; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
-                            <span style="color:#00E676; font-weight:bold;">S2 (รับแข็ง)</span> <span style="font-weight:bold;">{pivots['S2']:,.2f}</span>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+<div style="display:flex; flex-direction:column; gap:8px;">
+<div style="background:#220a0a; border:1px solid #FF1744; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
+<span style="color:#FF1744; font-weight:bold;">R2 (ต้านแข็ง)</span> <span style="font-weight:bold;">{pivots['R2']:,.2f}</span>
+</div>
+<div style="background:#221111; border:1px solid #FF5252; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
+<span style="color:#FF5252; font-weight:bold;">R1 (ต้านแรก)</span> <span style="font-weight:bold;">{pivots['R1']:,.2f}</span>
+</div>
+<div style="background:#1a1a1a; border:1px solid #FFD600; padding:15px; border-radius:10px; display:flex; justify-content:space-between; transform:scale(1.02); box-shadow:0 0 10px rgba(255,214,0,0.2);">
+<span style="color:#FFD600; font-weight:bold;">PIVOT (จุดหมุน)</span> <span style="font-weight:bold;">{pivots['PP']:,.2f}</span>
+</div>
+<div style="background:#0a1a11; border:1px solid #69F0AE; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
+<span style="color:#69F0AE; font-weight:bold;">S1 (รับแรก)</span> <span style="font-weight:bold;">{pivots['S1']:,.2f}</span>
+</div>
+<div style="background:#0a2215; border:1px solid #00E676; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
+<span style="color:#00E676; font-weight:bold;">S2 (รับแข็ง)</span> <span style="font-weight:bold;">{pivots['S2']:,.2f}</span>
+</div>
+</div>
+""", unsafe_allow_html=True)
 
             with col_dynamic:
                 st.markdown("### 🌊 Dynamic Levels (Moving Avgs)")
                 if dynamic:
                     curr = dynamic['Current']
-                    
                     def get_status(price, level):
                         diff = ((price - level) / level) * 100
-                        if price > level:
-                            return "SUPPORT (รับ)", "#00E676", f"+{diff:.2f}%"
-                        else:
-                            return "RESIST (ต้าน)", "#FF1744", f"{diff:.2f}%"
+                        if price > level: return "SUPPORT (รับ)", "#00E676", f"+{diff:.2f}%"
+                        else: return "RESIST (ต้าน)", "#FF1744", f"{diff:.2f}%"
 
                     dyn_items = [
                         ("BB Upper", dynamic['BB Upper']),
@@ -493,27 +598,12 @@ if symbol:
                         ("EMA 200", dynamic['EMA 200']),
                         ("BB Lower", dynamic['BB Lower'])
                     ]
-                    
-                    # Sort by price descending to mimic chart verticality
                     dyn_items.sort(key=lambda x: x[1], reverse=True)
                     
                     html_dyn = "<div style='display:flex; flex-direction:column; gap:10px;'>"
                     for name, val in dyn_items:
                         role, color, pct = get_status(curr, val)
-                        border_color = color
-                        bg_color = f"{color}10" # 10% opacity
-                        
-                        html_dyn += f"""
-                        <div style="background:{bg_color}; border-left:5px solid {border_color}; padding:15px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <div style="font-size:0.8rem; color:#888;">{name}</div>
-                                <div style="font-size:1.2rem; font-weight:bold;">{val:,.2f}</div>
-                            </div>
-                            <div style="text-align:right;">
-                                <div style="font-size:0.9rem; font-weight:bold; color:{color};">{role}</div>
-                                <div style="font-size:0.8rem; color:#ccc;">Dist: {pct}</div>
-                            </div>
-                        </div>
-                        """
+                        bg_color = f"{color}10"
+                        html_dyn += f"<div style='background:{bg_color}; border-left:5px solid {color}; padding:15px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;'><div><div style='font-size:0.8rem; color:#888;'>{name}</div><div style='font-size:1.2rem; font-weight:bold;'>{val:,.2f}</div></div><div style='text-align:right;'><div style='font-size:0.9rem; font-weight:bold; color:{color};'>{role}</div><div style='font-size:0.8rem; color:#ccc;'>Dist: {pct}</div></div></div>"
                     html_dyn += "</div>"
                     st.markdown(html_dyn, unsafe_allow_html=True)
