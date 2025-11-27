@@ -179,6 +179,45 @@ def identify_sr_levels(df):
             filtered.append(curr)
         return filtered
     except: return []
+        def calculate_pivot_points(df):
+    try:
+        # ใช้ข้อมูลแท่งก่อนหน้า (Yesterday)
+        prev = df.iloc[-2]
+        high, low, close = prev['High'], prev['Low'], prev['Close']
+        
+        # Standard Pivot Formula
+        pp = (high + low + close) / 3
+        r1 = (2 * pp) - low
+        s1 = (2 * pp) - high
+        r2 = pp + (high - low)
+        s2 = pp - (high - low)
+        
+        return {"PP": pp, "R1": r1, "S1": s1, "R2": r2, "S2": s2}
+    except:
+        return None
+
+def calculate_dynamic_levels(df):
+    try:
+        close = df['Close'].iloc[-1]
+        
+        # EMA (Dynamic)
+        ema20 = df['Close'].ewm(span=20).mean().iloc[-1]
+        ema50 = df['Close'].ewm(span=50).mean().iloc[-1]
+        ema200 = df['Close'].ewm(span=200).mean().iloc[-1]
+        
+        # Bollinger Bands (Dynamic Volatility)
+        sma20 = df['Close'].rolling(window=20).mean().iloc[-1]
+        std = df['Close'].rolling(window=20).std().iloc[-1]
+        bb_upper = sma20 + (2 * std)
+        bb_lower = sma20 - (2 * std)
+        
+        return {
+            "EMA 20": ema20, "EMA 50": ema50, "EMA 200": ema200,
+            "BB Upper": bb_upper, "BB Lower": bb_lower,
+            "Current": close
+        }
+    except:
+        return None
 
 # --- AI News Analysis (Thai) ---
 @st.cache_data(ttl=3600)
@@ -403,3 +442,4 @@ if symbol:
             elif ai_score <= 30: score_color = "#FF1744"
             else: score_color = "#FFD600"
             st.markdown(f"""<div class="ai-card" style="text-align:center; border-color:{score_color};"><div class="ai-score-circle" style="border-color:{score_color}; color:{score_color};">{ai_score}</div><div style="font-size:2rem; font-weight:bold; color:{score_color};">{ai_verdict}</div><p>{ai_text}</p></div>""", unsafe_allow_html=True)
+
