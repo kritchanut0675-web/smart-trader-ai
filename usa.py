@@ -147,14 +147,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. Functions (Moved Up to avoid NameError) ---
-
-@st.cache_data(ttl=15)
-def get_bitkub_ticker():
-    try:
-        r = requests.get("https://api.bitkub.com/api/market/ticker", timeout=5)
-        return r.json() if r.status_code == 200 else None
-    except: return None
+# --- 3. Functions ---
 
 @st.cache_data(ttl=300)
 def get_market_data(symbol, period, interval):
@@ -166,7 +159,7 @@ def get_stock_info(symbol):
     try: return yf.Ticker(symbol).info
     except: return None
 
-# --- NEW: AI Guru Analysis Logic (Enhanced) ---
+# --- AI Guru Analysis Logic ---
 def analyze_stock_guru(info, setup, symbol):
     # 1. Get Data
     pe = info.get('trailingPE')
@@ -283,6 +276,13 @@ def get_sector_pe_benchmark(sector):
         'Communication Services': 20
     }
     return benchmarks.get(sector, 20) 
+
+@st.cache_data(ttl=15)
+def get_bitkub_ticker():
+    try:
+        r = requests.get("https://api.bitkub.com/api/market/ticker", timeout=5)
+        return r.json() if r.status_code == 200 else None
+    except: return None
 
 def get_finnhub_news(symbol):
     try:
