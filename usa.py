@@ -161,6 +161,7 @@ def get_stock_info(symbol):
 
 # --- AI Guru Analysis Logic ---
 def analyze_stock_guru(info, setup, symbol):
+    # 1. Get Data
     pe = info.get('trailingPE')
     peg = info.get('pegRatio')
     pb = info.get('priceToBook')
@@ -169,34 +170,60 @@ def analyze_stock_guru(info, setup, symbol):
     rev_growth = info.get('revenueGrowth', 0)
     sector = info.get('sector', 'General')
     
+    # 2. Valuation Score (Max 10)
     val_score = 0
     reasons_q = []
     reasons_v = []
 
-    if roe and roe > 0.15: reasons_q.append("✅ ROE สูง (>15%) บริหารทุนเก่ง")
-    elif roe and roe < 0: reasons_q.append("❌ ROE ติดลบ ขาดทุน")
-    if profit_margin and profit_margin > 0.10: reasons_q.append("✅ อัตรากำไรดี (>10%)")
-    if rev_growth and rev_growth > 0: reasons_q.append("✅ รายได้เติบโต")
-    else: reasons_q.append("⚠️ รายได้ไม่โต หรือหดตัว")
+    if roe and roe > 0.15: 
+        reasons_q.append("✅ ROE สูง (>15%) บริหารทุนเก่ง")
+    elif roe and roe < 0:
+        reasons_q.append("❌ ROE ติดลบ ขาดทุน")
+        
+    if profit_margin and profit_margin > 0.10: 
+        reasons_q.append("✅ อัตรากำไรดี (>10%)")
     
+    if rev_growth and rev_growth > 0: 
+        reasons_q.append("✅ รายได้เติบโต")
+    else:
+        reasons_q.append("⚠️ รายได้ไม่โต หรือหดตัว")
+    
+    # PE Logic
     if pe:
-        if pe < 15: val_score += 3; reasons_v.append("✅ P/E ต่ำ (ถูก)")
-        elif pe < 25: val_score += 2; reasons_v.append("⚖️ P/E เหมาะสม")
-        elif pe < 40: val_score += 1; reasons_v.append("⚠️ P/E เริ่มสูง")
+        if pe < 15: 
+            val_score += 3 
+            reasons_v.append("✅ P/E ต่ำ (ถูก)")
+        elif pe < 25: 
+            val_score += 2 
+            reasons_v.append("⚖️ P/E เหมาะสม")
+        elif pe < 40: 
+            val_score += 1 
+            reasons_v.append("⚠️ P/E เริ่มสูง")
     else: val_score += 1
     
+    # PEG Logic (Growth)
     if peg:
-        if peg < 1.0: val_score += 3; reasons_v.append("✅ PEG < 1 (โตคุ้มราคา)")
-        elif peg < 2.0: val_score += 2; reasons_v.append("⚖️ PEG ปกติ")
-        else: val_score += 0; reasons_v.append("❌ PEG สูง (โตไม่ทันราคา)")
+        if peg < 1.0: 
+            val_score += 3 
+            reasons_v.append("✅ PEG < 1 (โตคุ้มราคา)")
+        elif peg < 2.0: 
+            val_score += 2 
+            reasons_v.append("⚖️ PEG ปกติ")
+        else: 
+            val_score += 0
+            reasons_v.append("❌ PEG สูง (โตไม่ทันราคา)")
     
+    # PB Logic
     if pb and pb < 3: val_score += 2
+    
+    # ROE Bonus
     if roe and roe > 0.15: val_score += 2
 
     val_score = min(10, val_score)
 
+    # 3. Verdict Text Generation
     intro = f"จากการวิเคราะห์หุ้น **{symbol}** ในกลุ่มอุตสาหกรรม **{sector}** ด้วยระบบ AI Guru พบข้อมูลที่น่าสนใจดังนี้:\n\n"
-    val_text = ""
+    
     if pe:
         if pe < 15: val_text = f"ในมุมมองความคุ้มค่า (Valuation) หุ้นตัวนี้ถือว่า **'ราคาถูก (Undervalued)'** เมื่อเทียบกับกำไรที่ทำได้ โดยมีค่า P/E อยู่ที่ {pe:.2f} ซึ่งต่ำกว่าเกณฑ์มาตรฐาน "
         elif pe > 40: val_text = f"ในมุมมองความคุ้มค่า ราคาหุ้นปัจจุบันค่อนข้าง **'แพง (Overvalued)'** มีค่า P/E สูงถึง {pe:.2f} สะท้อนความคาดหวังของนักลงทุนที่สูงมาก "
@@ -205,24 +232,45 @@ def analyze_stock_guru(info, setup, symbol):
 
     qual_text = ""
     if roe and roe > 0.15: qual_text = f"\n\nด้านคุณภาพบริษัท (Quality) จัดว่ายอดเยี่ยม มี ROE สูงถึง {roe*100:.1f}% แสดงถึงความสามารถในการบริหารเงินทุนของผู้บริหารที่เก่งกาจ "
-    
+    elif profit_margin and profit_margin < 0.05: qual_text = f"\n\nด้านคุณภาพอาจต้องระวังเรื่องอัตรากำไรที่ค่อนข้างบาง ({profit_margin*100:.1f}%) ซึ่งอาจเปราะบางต่อเศรษฐกิจ "
+
     tech_text = f"\n\n**คำแนะนำเชิงกลยุทธ์:** เมื่อประกอบกับกราฟเทคนิคที่เป็น **{setup['trend']}** "
     if setup['trend'] == "UPTREND (ขาขึ้น)":
-        if val_score >= 7: tech_text += "และพื้นฐานที่แข็งแกร่ง **'แนะนำให้ทยอยสะสม (Buy)'** ได้ทันที เพราะทั้งพื้นฐานและเทคนิคสนับสนุนกัน ราคาเป้าหมายยังมี Upside"
-        else: tech_text += "แม้เทคนิคจะดูดี แต่พื้นฐานเริ่มตึงตัว **'แนะนำให้เก็งกำไรระยะสั้น (Trading)'** และวางจุด Stop Loss อย่างเคร่งครัด ไม่ควรถือยาว"
+        if val_score >= 7: 
+            tech_text += "และพื้นฐานที่แข็งแกร่ง **'แนะนำให้ทยอยสะสม (Buy)'** ได้ทันที เพราะทั้งพื้นฐานและเทคนิคสนับสนุนกัน ราคาเป้าหมายยังมี Upside"
+        else:
+            tech_text += "แม้เทคนิคจะดูดี แต่พื้นฐานเริ่มตึงตัว **'แนะนำให้เก็งกำไรระยะสั้น (Trading)'** และวางจุด Stop Loss อย่างเคร่งครัด ไม่ควรถือยาว"
+    elif setup['trend'] == "DOWNTREND (ขาลง)":
+        if val_score >= 8:
+            tech_text += "แม้พื้นฐานจะดีและราคาถูกมาก แต่กราฟยังเป็นขาลง **'แนะนำให้ Wait & See'** รอให้กราฟสร้างฐานหรือยืนเหนือเส้น EMA ก่อนค่อยเข้าซื้อ จะได้ของดีในราคาที่ปลอดภัยกว่า"
+        else:
+            tech_text += "ประกอบกับพื้นฐานที่อ่อนแอ/แพง **'แนะนำให้หลีกเลี่ยง (Avoid)'** ไปก่อน จนกว่าจะมีสัญญาณการกลับตัวที่ชัดเจน"
     else:
         tech_text += "ควรรอให้ราคาเลือกทางที่ชัดเจนก่อนเข้าลงทุน (Wait for Breakout)"
 
     full_article = intro + val_text + qual_text + tech_text
 
+    # 4. Determine Status
     if val_score >= 8: status, color = "💎 Hidden Gem (ของดีราคาถูก)", "#00E676"
     elif val_score >= 5: status, color = "⚖️ Fair Value (เหมาะสม)", "#FFD600"
     else: status, color = "⚠️ High Risk / Expensive", "#FF1744"
 
-    return {"verdict": status, "color": color, "val_score": val_score, "article": full_article, "reasons_q": reasons_q, "reasons_v": reasons_v}
+    return {
+        "verdict": status,
+        "color": color,
+        "val_score": val_score,
+        "article": full_article,
+        "reasons_q": reasons_q,
+        "reasons_v": reasons_v
+    }
 
 def get_sector_pe_benchmark(sector):
-    benchmarks = {'Technology': 25, 'Financial Services': 15, 'Healthcare': 22, 'Consumer Cyclical': 20, 'Industrials': 20, 'Energy': 12}
+    benchmarks = {
+        'Technology': 25, 'Financial Services': 15, 'Healthcare': 22,
+        'Consumer Cyclical': 20, 'Industrials': 20, 'Energy': 12,
+        'Utilities': 18, 'Real Estate': 35, 'Basic Materials': 15,
+        'Communication Services': 20
+    }
     return benchmarks.get(sector, 20) 
 
 @st.cache_data(ttl=15)
@@ -608,7 +656,7 @@ if symbol:
                             cl = "#00E676" if curr > v else "#FF1744"
                             st.markdown(f"<div class='sr-card' style='border-left:4px solid {cl}; background:rgba({255 if cl=='#FF1744' else 0}, {230 if cl=='#00E676' else 23}, {118 if cl=='#00E676' else 68}, 0.1);'><span>{k}</span><div style='text-align:right;'>{v:,.2f}<br><small style='color:{cl}'>{dist:+.2f}%</small></div></div>", unsafe_allow_html=True)
 
-        # 7. AI Guru (Final Fixed - No Header)
+        # 7. AI Guru (Final Fixed)
         with tabs[6]:
             st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
             if info:
@@ -633,8 +681,6 @@ if symbol:
                     for r in guru['reasons_q']:
                         st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
                 with c2:
-                    # Removed 'Valuation Score (ความคุ้มค่า)' Header as requested
-                    st.markdown("#### ⚖️ Valuation Details")
                     for r in guru['reasons_v']:
                         st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
             else:
