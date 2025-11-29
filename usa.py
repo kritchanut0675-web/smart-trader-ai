@@ -44,7 +44,16 @@ st.markdown("""
         
         .stApp { background-color: #050505 !important; color: #e0e0e0; }
         
-        /* Glassmorphism Cards */
+        /* Modern Input */
+        div[data-testid="stTextInput"] input { 
+            background-color: #111 !important; color: #fff !important; 
+            font-weight: bold !important; font-size: 1.2rem !important;
+            border: 1px solid #333 !important; border-radius: 12px;
+            padding: 10px 15px !important;
+        }
+        div[data-testid="stTextInput"] input:focus { border-color: #00E5FF !important; }
+
+        /* Glass Cards */
         .glass-card {
             background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
             border: 1px solid #333; border-radius: 20px;
@@ -89,6 +98,18 @@ st.markdown("""
         }
         .ai-insight-icon { font-size: 2rem; margin-bottom: 10px; }
         
+        /* NEWS CARD (Restored Sentiment) */
+        .news-card { 
+            padding: 20px; margin-bottom: 15px; background: #111; 
+            border-radius: 15px; border-left: 5px solid #888; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+        .news-card:hover { transform: translateX(5px); background: #161616; }
+        .nc-pos { border-left-color: #00E676; }
+        .nc-neg { border-left-color: #FF1744; }
+        .nc-neu { border-left-color: #FFD600; }
+        
         /* Custom Tabs */
         button[data-baseweb="tab"] { 
             font-size: 1rem !important; font-weight: 600 !important; 
@@ -97,6 +118,18 @@ st.markdown("""
         }
         button[data-baseweb="tab"][aria-selected="true"] {
             background: #00E5FF !important; color: #000 !important; border-color: #00E5FF !important;
+        }
+        
+        /* Centered Button */
+        div.stButton > button {
+            width: 100%; justify-content: center; font-size: 1.1rem !important; 
+            padding: 12px !important; border-radius: 12px !important;
+            background: linear-gradient(45deg, #00E5FF, #2979FF); 
+            border: none !important; color: #000 !important; font-weight: 800 !important;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+        }
+        div.stButton > button:hover {
+            transform: scale(1.02); box-shadow: 0 0 25px rgba(0, 229, 255, 0.6);
         }
     </style>
 """, unsafe_allow_html=True)
@@ -141,13 +174,21 @@ def get_ai_analyzed_news_thai(symbol):
         for i in fh_news:
             t, s, l = i.get('headline',''), i.get('summary',''), i.get('url','#')
             sc = TextBlob(t).sentiment.polarity
-            icon = "🚀" if sc > 0.05 else "🔻" if sc < -0.05 else "⚖️"
-            cls = "nc-pos" if sc > 0.05 else "nc-neg" if sc < -0.05 else "nc-neu"
+            
+            # --- RESTORED: Sentiment Logic ---
+            if sc > 0.05: 
+                lbl, icon, cls = "ข่าวดี (Positive)", "🚀", "nc-pos"
+            elif sc < -0.05: 
+                lbl, icon, cls = "ข่าวร้าย (Negative)", "🔻", "nc-neg"
+            else: 
+                lbl, icon, cls = "ทั่วไป (Neutral)", "⚖️", "nc-neu"
+            
             t_th, s_th = t, s
             if translator:
                 try: t_th = translator.translate(t); s_th = translator.translate(s) if s else ""
                 except: pass
-            news_list.append({'title': t_th, 'summary': s_th, 'link': l, 'icon': icon, 'class': cls, 'score': sc, 'source': 'Finnhub'})
+            
+            news_list.append({'title': t_th, 'summary': s_th, 'link': l, 'icon': icon, 'class': cls, 'label': lbl, 'score': sc, 'source': 'Finnhub'})
 
     # 2. Google News
     if len(news_list) < 3:
@@ -162,43 +203,43 @@ def get_ai_analyzed_news_thai(symbol):
                 t = i.title
                 s = re.sub(re.compile('<.*?>'), '', getattr(i, 'summary', '') or getattr(i, 'description', ''))[:300]
                 sc = TextBlob(t).sentiment.polarity
-                icon = "🚀" if sc > 0.05 else "🔻" if sc < -0.05 else "⚖️"
-                cls = "nc-pos" if sc > 0.05 else "nc-neg" if sc < -0.05 else "nc-neu"
+                
+                # --- RESTORED: Sentiment Logic ---
+                if sc > 0.05: 
+                    lbl, icon, cls = "ข่าวดี (Positive)", "🚀", "nc-pos"
+                elif sc < -0.05: 
+                    lbl, icon, cls = "ข่าวร้าย (Negative)", "🔻", "nc-neg"
+                else: 
+                    lbl, icon, cls = "ทั่วไป (Neutral)", "⚖️", "nc-neu"
+                
                 t_th, s_th = t, s
                 if translator:
                     try: t_th = translator.translate(t); s_th = translator.translate(s) if s else ""
                     except: pass
-                news_list.append({'title': t_th, 'summary': s_th, 'link': i.link, 'icon': icon, 'class': cls, 'score': sc, 'source': 'Google'})
+                
+                news_list.append({'title': t_th, 'summary': s_th, 'link': i.link, 'icon': icon, 'class': cls, 'label': lbl, 'score': sc, 'source': 'Google'})
         except: pass
     return news_list[:10]
 
 def calculate_technical_setup(df):
     try:
-        # Full Series
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
         rs = gain / loss
         rsi_series = 100 - (100 / (1 + rs))
         
-        # Last Values
         close = df['Close'].iloc[-1]
         ema50 = df['Close'].ewm(span=50).mean().iloc[-1]
         ema200 = df['Close'].ewm(span=200).mean().iloc[-1]
         atr = pd.concat([df['High']-df['Low'], abs(df['High']-df['Close'].shift()), abs(df['Low']-df['Close'].shift())], axis=1).max(axis=1).rolling(14).mean().iloc[-1]
         rsi_val = rsi_series.iloc[-1]
 
-        if close > ema50 and ema50 > ema200: trend, sig, col, sc = "Uptrend (ขาขึ้น)", "BUY", "#00E676", 2
-        elif close < ema50 and ema50 < ema200: trend, sig, col, sc = "Downtrend (ขาลง)", "SELL", "#FF1744", -2
-        else: trend, sig, col, sc = "Sideways (ออกข้าง)", "WAIT", "#FFD600", 0
+        if close > ema50 and ema50 > ema200: trend, sig, col, sc = "UPTREND (ขาขึ้น)", "BUY", "#00E676", 2
+        elif close < ema50 and ema50 < ema200: trend, sig, col, sc = "DOWNTREND (ขาลง)", "SELL", "#FF1744", -2
+        else: trend, sig, col, sc = "SIDEWAYS (ออกข้าง)", "WAIT", "#FFD600", 0
         
-        return {
-            'trend': trend, 'signal': sig, 'color': col, 
-            'rsi_series': rsi_series, 'rsi_val': rsi_val,
-            'entry': close, 
-            'sl': close-(1.5*atr) if sc>=0 else close+(1.5*atr), 
-            'tp': close+(2.5*atr) if sc>=0 else close-(2.5*atr)
-        }
+        return {'trend': trend, 'signal': sig, 'color': col, 'rsi_series': rsi_series, 'rsi_val': rsi_val, 'entry': close, 'sl': close-(1.5*atr) if sc>=0 else close+(1.5*atr), 'tp': close+(2.5*atr) if sc>=0 else close-(2.5*atr)}
     except: return None
 
 def calculate_pivot_points(df):
@@ -234,7 +275,7 @@ def generate_dynamic_insight(price, pivots, dynamics):
         if abs(price-v) < min_d: min_d, n_name, n_price = abs(price-v), k, v
     
     dist_pct = (min_d / price) * 100
-    act = f"กำลังทดสอบแนว **{n_name}** ({n_price:,.2f}) ระยะห่างเพียง {dist_pct:.2f}%" if dist_pct < 0.8 else f"มีพื้นที่วิ่ง (Room to run) ไปหา **{n_name}** ({n_price:,.2f})"
+    act = f"⚠️ ราคากำลังทดสอบแนว **{n_name}** ({n_price:,.2f}) ระยะห่างเพียง {dist_pct:.2f}%" if dist_pct < 0.8 else f"มีพื้นที่วิ่ง (Room to run) ไปหา **{n_name}** ({n_price:,.2f})"
     return msg, col, icon, act
 
 def calculate_bitkub_ai_levels(h, l, c):
@@ -243,7 +284,6 @@ def calculate_bitkub_ai_levels(h, l, c):
     mid = (h+l)/2
     st, col = ("BULLISH (กระทิง)", "#00E676") if c > mid else ("BEARISH (หมี)", "#FF1744")
     
-    # AI Insight Text
     if c > pp: insight = f"ราคายืนเหนือ Pivot ({pp:,.0f}) ได้ ลุ้นทดสอบต้านถัดไปที่ R1"
     else: insight = f"ราคาหลุดต่ำกว่า Pivot ({pp:,.0f}) ระวังลงไปทดสอบ S1"
     
@@ -270,8 +310,8 @@ def gen_ai_verdict(setup, news):
     score = 50
     t_txt, n_txt = "", ""
     
-    if setup['trend'] == "Uptrend (ขาขึ้น)": score += 20; t_txt = "กราฟเป็นขาขึ้นชัดเจน ยืนเหนือ EMA"
-    elif setup['trend'] == "Downtrend (ขาลง)": score -= 20; t_txt = "กราฟเป็นขาลง หลุดแนวรับสำคัญ"
+    if setup['trend'] == "UPTREND (ขาขึ้น)": score += 20; t_txt = "กราฟเป็นขาขึ้นชัดเจน ยืนเหนือ EMA"
+    elif setup['trend'] == "DOWNTREND (ขาลง)": score -= 20; t_txt = "กราฟเป็นขาลง หลุดแนวรับสำคัญ"
     else: t_txt = "กราฟออกข้าง รอเลือกทาง"
     
     if setup['rsi_val'] > 70: score -= 5; t_txt += " (Overbought ระวังย่อ)"
@@ -309,10 +349,12 @@ with st.sidebar:
 
 # --- 5. Main ---
 st.markdown("<h2 style='color:#00E5FF;'>🔍 Smart Search</h2>", unsafe_allow_html=True)
-c1, c2 = st.columns([4,1])
+c1, c2 = st.columns([3, 1]) # Adjusted for better centering
 with c1: sym_input = st.text_input("Symbol", st.session_state.symbol, label_visibility="collapsed")
 with c2: 
-    if st.button("GO ⚡"): set_symbol(sym_input); st.rerun()
+    # Centered Button with New Label
+    if st.button("วิเคราะห์ ⚡", use_container_width=True): 
+        set_symbol(sym_input); st.rerun()
 
 symbol = st.session_state.symbol.upper()
 
@@ -346,7 +388,7 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
 
-        tabs = st.tabs(["📈 Chart", "📊 Stats", "🎯 Setup", "🤖 Verdict", "🛡️ S/R Dynamic", "🇹🇭 Bitkub AI", "📰 News"])
+        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R Dynamic", "🇹🇭 Bitkub AI"])
 
         # 1. Chart
         with tabs[0]:
@@ -381,26 +423,48 @@ if symbol:
                 peg = info.get('pegRatio')
                 c3.markdown(f"<div class='metric-box'><div class='metric-label'>PEG Ratio</div><div class='metric-val'>{peg if peg else 'N/A'}</div></div>", unsafe_allow_html=True)
 
-        # 3. Setup (Dashboard Style)
+        # 3. AI News (With Sentiment Logic Restored)
         with tabs[2]:
-            st.markdown(f"""
-            <div class='ai-insight-box' style='border-left: 5px solid {setup['color']}; margin-bottom:20px;'>
-                <h2 style='margin:0; color:{setup['color']};'>{setup['signal']}</h2>
-                <p style='font-size:1.2rem; color:#ccc; margin-top:5px;'>{setup['trend']}</p>
-                <div style='margin-top:15px; display:flex; gap:10px;'>
-                    <span style='background:#111; padding:5px 15px; border-radius:10px; border:1px solid #333;'>RSI: {setup['rsi_val']:.1f}</span>
-                    <span style='background:#111; padding:5px 15px; border-radius:10px; border:1px solid #333;'>Entry: {setup['entry']:,.2f}</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            c1, c2, c3 = st.columns(3)
-            c1.markdown(f"<div class='metric-box' style='border-left-color:#00E5FF'><div class='metric-label'>Buy Zone</div><div class='metric-val'>{curr*0.99:,.2f}</div></div>", unsafe_allow_html=True)
-            c2.markdown(f"<div class='metric-box' style='border-left-color:#00E676'><div class='metric-label'>Target (TP)</div><div class='metric-val'>{setup['tp']:,.2f}</div></div>", unsafe_allow_html=True)
-            c3.markdown(f"<div class='metric-box' style='border-left-color:#FF1744'><div class='metric-label'>Stop Loss</div><div class='metric-val'>{setup['sl']:,.2f}</div></div>", unsafe_allow_html=True)
+            st.markdown("### 📰 Market Sentiment")
+            if news:
+                for n in news:
+                    st.markdown(f"""
+                    <div class="news-card {n['class']}">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <span style="font-size:1rem;">{n['icon']}</span>
+                                <span style="font-weight:bold;color:#fff;">{n['label']}</span>
+                            </div>
+                            <span style="font-size:0.8rem;background:#333;padding:2px 8px;border-radius:5px;">{n['source']}</span>
+                        </div>
+                        <h4 style="margin:10px 0;color:#e0e0e0;">{n['title']}</h4>
+                        <p style="color:#aaa;font-size:0.9rem;line-height:1.5;">{n['summary']}</p>
+                        <div style="text-align:right;margin-top:10px;"><a href="{n['link']}" target="_blank" style="color:#00E5FF;text-decoration:none;">🔗 อ่านต่อ</a></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else: st.info("ไม่พบข่าว หรือ API ถูกจำกัด")
 
-        # 4. Verdict (Gauge Style)
+        # 4. Setup
         with tabs[3]:
+            if setup:
+                st.markdown(f"""
+                <div class='ai-insight-box' style='border-left: 5px solid {setup['color']}; margin-bottom:20px;'>
+                    <h2 style='margin:0; color:{setup['color']};'>{setup['signal']}</h2>
+                    <p style='font-size:1.2rem; color:#ccc; margin-top:5px;'>{setup['trend']}</p>
+                    <div style='margin-top:15px; display:flex; gap:10px;'>
+                        <span style='background:#111; padding:5px 15px; border-radius:10px; border:1px solid #333;'>RSI: {setup['rsi_val']:.1f}</span>
+                        <span style='background:#111; padding:5px 15px; border-radius:10px; border:1px solid #333;'>Entry: {setup['entry']:,.2f}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                c1, c2, c3 = st.columns(3)
+                c1.markdown(f"<div class='metric-box' style='border-left-color:#00E5FF'><div class='metric-label'>Buy Zone</div><div class='metric-val'>{curr*0.99:,.2f}</div></div>", unsafe_allow_html=True)
+                c2.markdown(f"<div class='metric-box' style='border-left-color:#00E676'><div class='metric-label'>Target (TP)</div><div class='metric-val'>{setup['tp']:,.2f}</div></div>", unsafe_allow_html=True)
+                c3.markdown(f"<div class='metric-box' style='border-left-color:#FF1744'><div class='metric-label'>Stop Loss</div><div class='metric-val'>{setup['sl']:,.2f}</div></div>", unsafe_allow_html=True)
+
+        # 5. Verdict
+        with tabs[4]:
             col_v1, col_v2 = st.columns([1, 1.5])
             with col_v1:
                 st.markdown(f"""
@@ -412,18 +476,20 @@ if symbol:
                 </div>
                 """, unsafe_allow_html=True)
             with col_v2:
+                st.markdown("### 🔍 AI Analysis Breakdown")
                 st.markdown(f"""
-                <div class='ai-insight-box'>
-                    <h4 style='margin:0; color:#fff;'>📈 Technical Analysis</h4>
-                    <p style='color:#bbb;'>{t_txt}</p>
-                    <hr style='border-color:#333;'>
-                    <h4 style='margin:0; color:#fff;'>📰 News Analysis</h4>
-                    <p style='color:#bbb;'>{n_txt}</p>
+                <div class="factor-card" style="border-left-color:{sc_col};">
+                    <h4 style="margin:0;color:#fff;">📈 Technical Insight</h4>
+                    <p style="margin-top:5px;color:#ccc;">{t_txt}</p>
+                </div>
+                <div class="factor-card" style="border-left-color:{'#00E676' if 'บวก' in n_txt else '#FF1744'};">
+                    <h4 style="margin:0;color:#fff;">📰 News Sentiment</h4>
+                    <p style="margin-top:5px;color:#ccc;">{n_txt}</p>
                 </div>
                 """, unsafe_allow_html=True)
 
-        # 5. S/R Dynamic (Card Grid)
-        with tabs[4]:
+        # 6. S/R Dynamic
+        with tabs[5]:
             pivots = calculate_pivot_points(df)
             dynamic = calculate_dynamic_levels(df)
             
@@ -451,8 +517,8 @@ if symbol:
                             cl = "#00E676" if curr > v else "#FF1744"
                             st.markdown(f"<div class='sr-card' style='border-left:4px solid {cl}; background:rgba({255 if cl=='#FF1744' else 0}, {230 if cl=='#00E676' else 23}, {118 if cl=='#00E676' else 68}, 0.1);'><span>{k}</span><div style='text-align:right;'>{v:,.2f}<br><small style='color:{cl}'>{dist:+.2f}%</small></div></div>", unsafe_allow_html=True)
 
-        # 6. Bitkub AI (Enhanced)
-        with tabs[5]:
+        # 7. Bitkub AI
+        with tabs[6]:
             bk_sel = st.radio("เลือกเหรียญ (THB)", ["BTC", "ETH"], horizontal=True)
             if bk_data:
                 pair = f"THB_{bk_sel}"
@@ -480,22 +546,5 @@ if symbol:
                         st.info(f"**Bottom:** {ai_bk['fib']['bot']:,.0f}\n\n**Top:** {ai_bk['fib']['top']:,.0f}")
                 else: st.error("ไม่พบข้อมูล")
             else: st.warning("Connecting...")
-
-        # 7. News
-        with tabs[6]:
-            if news:
-                for n in news:
-                    st.markdown(f"""
-                    <div class="news-card {n['class']}">
-                        <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-                            <span style="font-size:0.8rem;background:#333;padding:2px 8px;border-radius:5px;">{n['source']}</span>
-                            <span>{n['icon']}</span>
-                        </div>
-                        <h4 style="margin:0 0 8px 0;color:#fff;">{n['title']}</h4>
-                        <p style="color:#aaa;font-size:0.9rem;">{n['summary']}</p>
-                        <div style="text-align:right;margin-top:10px;"><a href="{n['link']}" target="_blank" style="color:#00E5FF;text-decoration:none;">🔗 อ่านข่าวเต็ม</a></div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            else: st.info("No News Found")
 
     else: st.error("❌ ไม่พบข้อมูลหุ้น/เหรียญนี้")
