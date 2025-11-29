@@ -9,6 +9,7 @@ import feedparser
 import nltk
 import urllib.parse
 import requests
+import datetime
 
 # Import translation library
 try:
@@ -20,6 +21,9 @@ except ImportError:
 # Config NLTK
 try: nltk.data.find('tokenizers/punkt')
 except LookupError: nltk.download('punkt')
+
+# --- CONFIGURATION ---
+FINNHUB_KEY = "d4l5ku1r01qt7v18ll40d4l5ku1r01qt7v18ll4g"  # ใส่ Key ของคุณที่นี่
 
 # --- 1. Setup & Design ---
 st.set_page_config(
@@ -136,6 +140,93 @@ def get_bitkub_ticker():
         return None
     except: return None
 
+# --- NEW: Finnhub News Integration ---
+def get_finnhub_news(symbol):
+    try:
+        # Determine current date range for Finnhub
+        today = datetime.date.today()
+        yesterday = today - datetime.timedelta(days=2)
+        
+        # Clean symbol for Finnhub (e.g. BTC-USD -> BTC)
+        clean_sym = symbol.split("-")[0]
+        
+        url = f"https://finnhub.io/api/v1/company-news?symbol={clean_sym}&from={yesterday}&to={today}&token={FINNHUB_KEY}"
+        r = requests.get(url)
+        data = r.json()
+        
+        if data and isinstance(data, list) and len(data) > 0:
+            return data[:5] # Return top 5 news
+        return []
+    except:
+        return []
+
+# --- Enhanced News Analysis (Hybrid: Finnhub + Google) ---
+@st.cache_data(ttl=3600)
+def get_ai_analyzed_news_thai(symbol):
+    news_list = []
+    translator = GoogleTranslator(source='auto', target='th') if HAS_TRANSLATOR else None
+    
+    # 1. Try Finnhub First (For US Stocks/Crypto)
+    finnhub_news = get_finnhub_news(symbol)
+    
+    if finnhub_news:
+        for item in finnhub_news:
+            title = item.get('headline', '')
+            link = item.get('url', '#')
+            
+            # Analyze Sentiment
+            blob = TextBlob(title)
+            score = blob.sentiment.polarity
+            
+            if score > 0.05: sentiment, color, icon = "ข่าวดี (Positive)", "nc-pos", "🚀"
+            elif score < -0.05: sentiment, color, icon = "ข่าวร้าย (Negative)", "nc-neg", "🔻"
+            else: sentiment, color, icon = "ทั่วไป (Neutral)", "nc-neu", "⚖️"
+            
+            # Translate
+            title_th = title
+            if translator:
+                try: title_th = translator.translate(title)
+                except: pass
+                
+            news_list.append({
+                'title_th': title_th, 'link': link, 'sentiment': sentiment,
+                'class': color, 'icon': icon, 'score': score, 'source': 'Finnhub'
+            })
+            
+    # 2. If Finnhub empty or less than 3, fallback to Google RSS
+    if len(news_list) < 3:
+        try:
+            clean_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
+            q = urllib.parse.quote(f"site:bloomberg.com {clean_sym} market")
+            rss_url = f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
+            feed = feedparser.parse(rss_url)
+            
+            if len(feed.entries) == 0:
+                q = urllib.parse.quote(f"{clean_sym} finance news")
+                rss_url = f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
+                feed = feedparser.parse(rss_url)
+
+            for item in feed.entries[:5]:
+                blob = TextBlob(item.title)
+                score = blob.sentiment.polarity
+                
+                if score > 0.05: sentiment, color, icon = "ข่าวดี (Positive)", "nc-pos", "🚀"
+                elif score < -0.05: sentiment, color, icon = "ข่าวร้าย (Negative)", "nc-neg", "🔻"
+                else: sentiment, color, icon = "ทั่วไป (Neutral)", "nc-neu", "⚖️"
+
+                title_th = item.title
+                if translator:
+                    try: title_th = translator.translate(item.title)
+                    except: pass
+
+                news_list.append({
+                    'title_th': title_th, 'link': item.link, 'sentiment': sentiment,
+                    'class': color, 'icon': icon, 'score': score, 'source': 'Google News'
+                })
+        except: pass
+        
+    return news_list[:10] # Return mixed list
+
 # --- NEW: General AI Insight for S/R ---
 def generate_dynamic_insight(price, pivots, dynamics):
     # 1. Trend Analysis
@@ -151,7 +242,7 @@ def generate_dynamic_insight(price, pivots, dynamics):
         else: trend_msg = "Bearish Correction (ดีดตัวในขาลง)"
         trend_color = "#FF1744"
 
-    # 2. Proximity Check (Find nearest level)
+    # 2. Proximity Check
     all_levels = {**pivots, **{k:v for k,v in dynamics.items() if k != 'Current'}}
     nearest_name = ""
     nearest_price = 0
@@ -303,50 +394,6 @@ def calculate_dynamic_levels(df):
             "Current": close
         }
     except: return None
-
-@st.cache_data(ttl=3600)
-def get_ai_analyzed_news_thai(symbol):
-    news_list = []
-    clean_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
-    translator = GoogleTranslator(source='auto', target='th') if HAS_TRANSLATOR else None
-    try:
-        q = urllib.parse.quote(f"site:bloomberg.com {clean_sym} market")
-        rss_url = f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
-        feed = feedparser.parse(rss_url)
-        
-        if len(feed.entries) == 0:
-            q = urllib.parse.quote(f"{clean_sym} finance news")
-            rss_url = f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
-            feed = feedparser.parse(rss_url)
-
-        for item in feed.entries[:5]:
-            blob = TextBlob(item.title)
-            sentiment_score = blob.sentiment.polarity
-            
-            if sentiment_score > 0.05:
-                sentiment = "ข่าวดี (Positive)"
-                color_class = "nc-pos"
-                icon = "🚀"
-            elif sentiment_score < -0.05:
-                sentiment = "ข่าวร้าย (Negative)"
-                color_class = "nc-neg"
-                icon = "🔻"
-            else:
-                sentiment = "ทั่วไป (Neutral)"
-                color_class = "nc-neu"
-                icon = "⚖️"
-
-            title_th = item.title
-            if translator:
-                try: title_th = translator.translate(item.title)
-                except: pass
-
-            news_list.append({
-                'title_th': title_th, 'link': item.link, 'sentiment': sentiment,
-                'class': color_class, 'icon': icon, 'score': sentiment_score
-            })
-    except: pass
-    return news_list
 
 def generate_ai_analysis(df, setup, news_list):
     analysis_text = ""
@@ -546,12 +593,13 @@ if symbol:
             else:
                 st.info("ไม่พบข้อมูลพื้นฐาน (Fundamental Data) สำหรับสินทรัพย์นี้ (อาจเป็น Crypto หรือ Commodity)")
 
-        # Tab 3: AI News
+        # Tab 3: AI News (Hybrid)
         with tabs[2]:
             st.markdown("### 📰 AI Sentiment Analysis (วิเคราะห์อารมณ์ข่าว)")
             if news_list:
                 for n in news_list:
-                    st.markdown(f"""<div class="news-card {n['class']}"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-size:0.9rem; font-weight:bold; padding:4px 10px; border-radius:10px; background:#fff; color:#000;">{n['icon']} {n['sentiment']}</span></div><h4 style="color:#fff; margin:10px 0;">{n['title_th']}</h4><a href="{n['link']}" target="_blank" style="color:#aaa; font-size:0.9rem;">🔗 อ่านข่าวต้นฉบับ</a></div>""", unsafe_allow_html=True)
+                    source_badge = f"<span style='font-size:0.7rem; background:#333; padding:2px 6px; border-radius:4px; margin-left:5px;'>{n.get('source','')}</span>"
+                    st.markdown(f"""<div class="news-card {n['class']}"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-size:0.9rem; font-weight:bold; padding:4px 10px; border-radius:10px; background:#fff; color:#000;">{n['icon']} {n['sentiment']}</span>{source_badge}</div><h4 style="color:#fff; margin:10px 0;">{n['title_th']}</h4><a href="{n['link']}" target="_blank" style="color:#aaa; font-size:0.9rem;">🔗 อ่านข่าวต้นฉบับ</a></div>""", unsafe_allow_html=True)
             else: st.info("ไม่พบข่าวในขณะนี้ หรือ API ถูกจำกัดการเข้าถึง")
 
         # Tab 4: S/R & Setup
@@ -585,12 +633,11 @@ if symbol:
             else: score_color = "#FFD600"
             st.markdown(f"""<div class="ai-card" style="text-align:center; border-color:{score_color};"><div class="ai-score-circle" style="border-color:{score_color}; color:{score_color};">{ai_score}</div><div style="font-size:2rem; font-weight:bold; color:{score_color};">{ai_verdict}</div><p>{ai_text}</p></div>""", unsafe_allow_html=True)
             
-        # Tab 7: S/R Dynamics (Updated with AI Insight)
+        # Tab 7: S/R Dynamics (With AI Insight)
         with tabs[6]:
             pivots = calculate_pivot_points(df)
             dynamic = calculate_dynamic_levels(df)
             col_static, col_dynamic = st.columns(2)
-            
             with col_static:
                 st.markdown("### 🧱 Static Levels (Pivot Points)")
                 if pivots:
@@ -602,7 +649,6 @@ if symbol:
 <div style="background:#0a1a11; border:1px solid #69F0AE; padding:15px; border-radius:10px; display:flex; justify-content:space-between;"><span style="color:#69F0AE; font-weight:bold;">S1 (รับแรก)</span> <span style="font-weight:bold;">{pivots['S1']:,.2f}</span></div>
 <div style="background:#0a2215; border:1px solid #00E676; padding:15px; border-radius:10px; display:flex; justify-content:space-between;"><span style="color:#00E676; font-weight:bold;">S2 (รับแข็ง)</span> <span style="font-weight:bold;">{pivots['S2']:,.2f}</span></div>
 </div>""", unsafe_allow_html=True)
-
             with col_dynamic:
                 st.markdown("### 🌊 Dynamic Levels (Moving Avgs)")
                 if dynamic:
@@ -620,26 +666,18 @@ if symbol:
                     html_dyn += "</div>"
                     st.markdown(html_dyn, unsafe_allow_html=True)
             
-            # --- NEW: AI Insight Section in Tab 7 ---
             st.markdown("---")
             if pivots and dynamic:
                 t_msg, t_col, a_msg = generate_dynamic_insight(curr_price, pivots, dynamic)
-                st.markdown(f"""
-                <div style="background:#111; border:1px solid {t_col}; padding:20px; border-radius:15px;">
-                    <h3 style="color:{t_col}; margin-top:0;">🧠 AI Insight: {t_msg}</h3>
-                    <p style="font-size:1.1rem;">{a_msg}</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"""<div style="background:#111; border:1px solid {t_col}; padding:20px; border-radius:15px;"><h3 style="color:{t_col}; margin-top:0;">🧠 AI Insight: {t_msg}</h3><p style="font-size:1.1rem;">{a_msg}</p></div>""", unsafe_allow_html=True)
 
         # Tab 8: Bitkub AI S/R
         with tabs[7]:
             st.markdown("### 🇹🇭 Bitkub AI Support & Resistance (บาท)")
             bk_coin_sel = st.radio("เลือกเหรียญ (THB Pair)", ["BTC", "ETH"], horizontal=True)
-            
             if bk_data:
                 pair = f"THB_{bk_coin_sel}"
                 coin_data = bk_data.get(pair, {})
-                
                 if coin_data:
                     last_thb = coin_data.get('last', 0)
                     high_24 = coin_data.get('high24hr', 0)
