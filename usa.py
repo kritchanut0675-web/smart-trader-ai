@@ -85,6 +85,14 @@ st.markdown("""
             display: flex; justify-content: space-between; align-items: center;
         }
 
+        /* AI Verdict */
+        .ai-circle {
+            width: 120px; height: 120px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 3rem; font-weight: bold; margin: 0 auto;
+            border: 6px solid #333;
+        }
+
         /* Custom Tabs */
         button[data-baseweb="tab"] { font-size: 1rem !important; font-weight: 600 !important; }
     </style>
@@ -287,6 +295,9 @@ def gen_ai_verdict(setup, news):
     return text, score, verd
 
 # --- 4. Sidebar ---
+# เรียกใช้ API ที่นี่เพื่อให้ตัวแปร bk_data มีค่าแน่นอน
+bk_data = get_bitkub_ticker()
+
 with st.sidebar:
     st.markdown("<h1 style='text-align:center;color:#00E5FF;'>💎 ULTRA</h1>", unsafe_allow_html=True)
     
@@ -299,14 +310,15 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("### 🇹🇭 Bitkub Live")
-    bk = get_bitkub_ticker()
-    if bk:
-        b_p = bk.get('THB_BTC',{}).get('last',0)
-        b_c = bk.get('THB_BTC',{}).get('percentChange',0)
+    
+    # ใช้ bk_data ที่ดึงมาแล้ว
+    if bk_data:
+        b_p = bk_data.get('THB_BTC',{}).get('last',0)
+        b_c = bk_data.get('THB_BTC',{}).get('percentChange',0)
         b_col = "#00E676" if b_c >= 0 else "#FF1744"
         
-        e_p = bk.get('THB_ETH',{}).get('last',0)
-        e_c = bk.get('THB_ETH',{}).get('percentChange',0)
+        e_p = bk_data.get('THB_ETH',{}).get('last',0)
+        e_c = bk_data.get('THB_ETH',{}).get('percentChange',0)
         e_col = "#00E676" if e_c >= 0 else "#FF1744"
         
         st.markdown(f"""
@@ -342,7 +354,7 @@ if symbol:
         info = get_stock_info(symbol)
         ai_txt, ai_sc, ai_vd = gen_ai_verdict(setup, news)
         
-        # Determine score color
+        # Determine score color (Define Variable Here!)
         if ai_sc >= 75: sc_color = "#00E676"
         elif ai_sc <= 25: sc_color = "#FF1744"
         else: sc_color = "#FFD600"
@@ -502,6 +514,7 @@ if symbol:
             st.markdown("### 🇹🇭 Bitkub AI Analysis")
             bk_sel = st.radio("เลือกเหรียญ:", ["BTC", "ETH"], horizontal=True)
             
+            # ใช้ bk_data ที่ดึงไว้แล้ว (ตัวแปรเดียวกับ sidebar)
             if bk_data:
                 pair = f"THB_{bk_sel}"
                 coin = bk_data.get(pair, {})
