@@ -164,28 +164,31 @@ def fetch_full_article(url):
 
 def calculate_technical_setup(df):
     try:
-        # Calculate full series for plotting
+        # Calculate full series for Plotting
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
         rs = gain / loss
-        rsi_series = 100 - (100 / (1 + rs)) # Full series
+        rsi_series = 100 - (100 / (1 + rs)) # Series
         
-        # Get last values for logic
+        # Calculate scalars for Logic
         close = df['Close'].iloc[-1]
         ema50 = df['Close'].ewm(span=50).mean().iloc[-1]
         ema200 = df['Close'].ewm(span=200).mean().iloc[-1]
         tr = pd.concat([df['High']-df['Low'], abs(df['High']-df['Close'].shift()), abs(df['Low']-df['Close'].shift())], axis=1).max(axis=1)
         atr = tr.rolling(14).mean().iloc[-1]
         
+        rsi_val = rsi_series.iloc[-1] # Scalar
+
         if close > ema50 and ema50 > ema200: trend, sig, col, sc = "Uptrend", "BUY", "#00E676", 2
         elif close < ema50 and ema50 < ema200: trend, sig, col, sc = "Downtrend", "SELL", "#FF1744", -2
         else: trend, sig, col, sc = "Sideways", "WAIT", "#888", 0
         
         return {
             'trend': trend, 'signal': sig, 'color': col, 
-            'rsi': rsi_series, 'rsi_val': rsi_series.iloc[-1], # Separate series and value
-            'entry': close, 'sl': close-(1.5*atr) if sc>=0 else close+(1.5*atr), 
+            'rsi': rsi_series, 'rsi_val': rsi_val,
+            'entry': close, 
+            'sl': close-(1.5*atr) if sc>=0 else close+(1.5*atr), 
             'tp': close+(2.5*atr) if sc>=0 else close-(2.5*atr)
         }
     except: return None
@@ -264,6 +267,7 @@ def gen_ai_verdict(setup, news):
     if setup['trend'] == "Uptrend": score += 20; text += "📈 เทคนิคขาขึ้น "
     elif setup['trend'] == "Downtrend": score -= 20; text += "📉 เทคนิคขาลง "
     
+    # Use scalar value rsi_val here
     if setup['rsi_val'] > 70: score -= 5; text += "(RSI Overbought) "
     elif setup['rsi_val'] < 30: score += 5; text += "(RSI Oversold) "
     
@@ -314,6 +318,11 @@ if symbol:
         levels = get_levels(df)
         info = get_stock_info(symbol)
         ai_txt, ai_sc, ai_vd = gen_ai_verdict(setup, news)
+        
+        # --- FIX: Define score_color here ---
+        if ai_sc >= 70: score_color = "#00E676"
+        elif ai_sc <= 30: score_color = "#FF1744"
+        else: score_color = "#FFD600"
 
         # Header
         st.markdown(f"""
@@ -332,8 +341,9 @@ if symbol:
             fig = make_subplots(rows=2, cols=1, row_heights=[0.7, 0.3], shared_xaxes=True)
             fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
             fig.add_trace(go.Scatter(x=df.index, y=df['Close'].ewm(span=50).mean(), line=dict(color='#2962FF'), name="EMA50"), row=1, col=1)
-            # FIX: Use full RSI series
-            fig.add_trace(go.Scatter(x=df.index, y=setup['rsi'] if setup else [50]*len(df), line=dict(color='#AA00FF'), name="RSI"), row=2, col=1)
+            # Use full RSI series for plotting
+            rsi_plot = setup['rsi'] if setup else [50]*len(df)
+            fig.add_trace(go.Scatter(x=df.index, y=rsi_plot, line=dict(color='#AA00FF'), name="RSI"), row=2, col=1)
             fig.add_hline(y=70, line_color='red', line_dash='dot', row=2, col=1)
             fig.add_hline(y=30, line_color='green', line_dash='dot', row=2, col=1)
             fig.update_layout(template='plotly_dark', height=600, margin=dict(l=0,r=0,t=0,b=0))
