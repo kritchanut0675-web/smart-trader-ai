@@ -14,13 +14,6 @@ import re
 
 # --- Libraries Setup ---
 try:
-    # เพิ่ม Config เพื่อตั้งค่า User-Agent
-    from newspaper import Article, Config 
-    HAS_NEWSPAPER = True
-except ImportError:
-    HAS_NEWSPAPER = False
-
-try:
     from deep_translator import GoogleTranslator
     HAS_TRANSLATOR = True
 except ImportError:
@@ -35,7 +28,6 @@ FINNHUB_KEY = "d4l5ku1r01qt7v18ll40d4l5ku1r01qt7v18ll4g"
 st.set_page_config(page_title="Smart Trader AI : Ultra Black", layout="wide", page_icon="💎")
 
 if 'symbol' not in st.session_state: st.session_state.symbol = 'BTC-USD'
-if 'article_url' not in st.session_state: st.session_state.article_url = None
 
 def set_symbol(sym): st.session_state.symbol = sym
 
@@ -144,50 +136,6 @@ def get_ai_analyzed_news_thai(symbol):
                 news_list.append({'title_th': title_th, 'summary_th': summary_th, 'link': i.link, 'icon': icon, 'class': cls, 'score': score, 'source': 'Google'})
         except: pass
     return news_list[:10]
-
-# --- UPDATED: Robust Article Fetcher with User-Agent ---
-@st.cache_data(ttl=3600)
-def fetch_full_article(url):
-    if not HAS_NEWSPAPER: return "❌ Error", "กรุณาติดตั้ง: pip install newspaper3k"
-    
-    try:
-        # 1. ตั้งค่า User-Agent หลอกว่าเป็น Chrome
-        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        config = Config()
-        config.browser_user_agent = user_agent
-        config.request_timeout = 10
-        config.fetch_images = False
-
-        # 2. Download
-        article = Article(url, config=config)
-        article.download()
-        article.parse()
-        
-        full_text = article.text
-        title = article.title
-        
-        # 3. Check Content
-        if not full_text or len(full_text) < 50:
-            return "⚠️ ไม่สามารถแกะเนื้อหาได้", f"เว็บไซต์นี้มีการป้องกันบอทขั้นสูง หรือเป็นเนื้อหา Premium \n\n🔗 กรุณากดอ่านที่ต้นฉบับ: {url}"
-
-        # 4. Translate
-        title_th = title
-        text_th = full_text
-        
-        if HAS_TRANSLATOR and full_text:
-            translator = GoogleTranslator(source='auto', target='th')
-            try:
-                title_th = translator.translate(title)
-                chunks = [full_text[i:i+4000] for i in range(0, len(full_text), 4000)]
-                translated_chunks = [translator.translate(chunk) for chunk in chunks]
-                text_th = "\n\n".join(translated_chunks)
-            except: 
-                text_th = full_text + "\n\n(แปลภาษาล้มเหลว แสดงภาษาเดิม)"
-            
-        return title_th, text_th
-
-    except Exception as e:
-        return "❌ Error Fetching", f"เกิดข้อผิดพลาด: {str(e)} \n\nลิงก์นี้อาจมีการป้องกัน (Cloudflare/Paywall)"
 
 def calculate_technical_setup(df):
     try:
@@ -352,7 +300,7 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
 
-        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "📖 Full Reader", "🎯 Setup", "🤖 Verdict", "🛡️ S/R", "🇹🇭 Bitkub AI"])
+        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R", "🇹🇭 Bitkub AI"])
 
         with tabs[0]:
             fig = make_subplots(rows=2, cols=1, row_heights=[0.7, 0.3], shared_xaxes=True)
@@ -381,29 +329,21 @@ if symbol:
         with tabs[2]: # AI News
             if news:
                 for n in news:
+                    source_badge = f"<span style='font-size:0.7rem; background:#333; padding:2px 6px; border-radius:4px; margin-left:5px;'>{n.get('source','')}</span>"
+                    summary_html = f"<div class='news-summary'>{n['summary_th']}</div>" if n.get('summary_th') else ""
                     st.markdown(f"""
                     <div class="news-card {n['class']}">
                         <div style="display:flex;justify-content:space-between;">
-                            <span>{n['icon']} {n['source']}</span>
+                            <span>{n['icon']} {n['sentiment']} {source_badge}</span>
                         </div>
                         <h4>{n['title_th']}</h4>
-                        <div style="color:#aaa;font-size:0.9rem;">{n['summary_th']}</div>
+                        {summary_html}
+                        <div style="margin-top:10px;text-align:right;"><a href="{n['link']}" target="_blank" style="color:#00E5FF;">อ่านต่อ...</a></div>
                     </div>
                     """, unsafe_allow_html=True)
-                    if st.button(f"📖 อ่านฉบับเต็ม: {n['title_th'][:20]}...", key=n['link']):
-                        st.session_state.article_url = n['link']
-                        st.success("ส่งไปที่แท็บ Full Reader แล้ว!")
             else: st.info("No News")
 
-        with tabs[3]: # Full Reader
-            if st.session_state.article_url:
-                with st.spinner("แกะข่าว..."):
-                    t_th, b_th = fetch_full_article(st.session_state.article_url)
-                    st.markdown(f"### {t_th}")
-                    st.write(b_th)
-            else: st.warning("เลือกข่าวจากแท็บ AI News ก่อน")
-
-        with tabs[4]: # Setup
+        with tabs[3]: # Setup
             if setup:
                 st.markdown(f"""
                 <div class="glass-card" style="text-align:center;border:2px solid {setup['color']}">
@@ -412,47 +352,12 @@ if symbol:
                     <p>Entry: {setup['entry']:.2f} | TP: {setup['tp']:.2f} | SL: {setup['sl']:.2f}</p>
                 </div>
                 """, unsafe_allow_html=True)
+                st.markdown("### 💰 Entry Levels")
+                t1, t2, t3 = curr*0.99, curr*0.97, curr*0.94
+                st.markdown(f"**Probe Buy:** {t1:,.2f} | **Accumulate:** {t2:,.2f} | **Sniper:** {t3:,.2f}")
 
-        with tabs[5]: # Verdict
+        with tabs[4]: # Verdict
             st.markdown(f"""
             <div class="ai-card">
                 <div class="ai-score-circle">{ai_sc}</div>
-                <h2 style="color:{score_color}">{ai_vd}</h2>
-                <p>{ai_txt}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with tabs[6]: # S/R
-            res = sorted([l for l in levels if l > curr])[:3]
-            sup = sorted([l for l in levels if l < curr], reverse=True)[:3]
-            st.write("RESISTANCE (ต้าน):", [f"{r:,.2f}" for r in reversed(res)])
-            st.write("SUPPORT (รับ):", [f"{s:,.2f}" for s in sup])
-            
-            pivots = calculate_pivot_points(df)
-            dynamic = calculate_dynamic_levels(df)
-            if pivots and dynamic:
-                t_msg, t_col, a_msg = generate_dynamic_insight(curr, pivots, dynamic)
-                st.markdown(f"""<div style="background:#111; border:1px solid {t_col}; padding:20px; border-radius:15px; margin-top:20px;"><h3 style="color:{t_col}; margin-top:0;">🧠 AI Insight: {t_msg}</h3><p>{a_msg}</p></div>""", unsafe_allow_html=True)
-
-        with tabs[7]: # Bitkub AI
-            bk_sel = st.radio("Bitkub Coin", ["BTC","ETH"], horizontal=True)
-            if bk:
-                pair = f"THB_{bk_sel}"
-                d = bk.get(pair, {})
-                last, h24, l24 = d.get('last',0), d.get('high24hr',0), d.get('low24hr',0)
-                ai_bk = calculate_bitkub_ai_levels(h24, l24, last)
-                
-                st.markdown(f"""<div style="text-align:center;padding:20px;background:#111;border-radius:20px;border:2px solid {ai_bk['color']};margin-bottom:20px;">
-                <div style="font-size:1.2rem;color:#aaa;">Price</div>
-                <div style="font-size:3rem;font-weight:bold;color:#fff;">{last:,.0f}</div>
-                <div style="font-size:1.5rem;font-weight:bold;color:{ai_bk['color']};">{ai_bk['status']}</div></div>""", unsafe_allow_html=True)
-                
-                c1, c2 = st.columns(2)
-                with c1:
-                    for l in ai_bk['levels']:
-                        cl = "#00E676" if l['type']=='sup' else "#FF1744" if l['type']=='res' else "#FFD600"
-                        st.markdown(f"<div style='display:flex;justify-content:space-between;padding:10px;border-left:5px solid {cl};background:#161616;margin-bottom:5px;'><b>{l['name']}</b><span>{l['price']:,.0f}</span></div>", unsafe_allow_html=True)
-                with c2:
-                    st.info(f"Golden Top: {ai_bk['fib']['top']:,.0f}\nGolden Bot: {ai_bk['fib']['bot']:,.0f}")
-
-    else: st.error("ไม่พบข้อมูล")
+                <h2 style="color:{score_
