@@ -12,6 +12,13 @@ import requests
 import datetime
 import re
 
+# --- NEW: Import Newspaper for Article Scraping ---
+try:
+    from newspaper import Article
+    HAS_NEWSPAPER = True
+except ImportError:
+    HAS_NEWSPAPER = False
+
 # Import translation library
 try:
     from deep_translator import GoogleTranslator
@@ -36,6 +43,8 @@ st.set_page_config(
 
 if 'symbol' not in st.session_state:
     st.session_state.symbol = 'BTC-USD'
+if 'article_url' not in st.session_state:
+    st.session_state.article_url = None
 
 def set_symbol(sym):
     st.session_state.symbol = sym
@@ -87,17 +96,11 @@ st.markdown("""
 
         /* NEWS CARD */
         .news-card { 
-            padding: 25px; margin-bottom: 20px; 
+            padding: 25px; margin-bottom: 10px; 
             background: #111; border-radius: 15px; 
             border-left: 6px solid #888; 
-            transition: transform 0.2s; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        .news-card:hover { transform: translateY(-2px); background: #161616; }
-        .nc-pos { border-left-color: #00E676; }
-        .nc-neg { border-left-color: #FF1744; }
-        .nc-neu { border-left-color: #FFD600; }
-        
         .news-summary {
             font-size: 1rem; color: #ccc; margin-top: 10px; line-height: 1.6;
             background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;
@@ -116,8 +119,8 @@ st.markdown("""
 
         /* BUTTONS */
         div.stButton > button {
-            font-size: 1.1rem !important; padding: 15px !important; border-radius: 15px !important;
-            background: #111; border: 1px solid #333; color: #fff;
+            font-size: 1.1rem !important; padding: 10px 20px !important; border-radius: 10px !important;
+            background: #111; border: 1px solid #333; color: #fff; width: 100%;
         }
         div.stButton > button:hover { background: #00E5FF; color: #000 !important; font-weight: bold; }
         
@@ -152,7 +155,6 @@ def get_bitkub_ticker():
         return None
     except: return None
 
-# --- NEW: Helper to clean HTML tags ---
 def clean_html(raw_html):
     cleanr = re.compile('<.*?>')
     cleantext = re.sub(cleanr, '', raw_html)
@@ -176,7 +178,7 @@ def get_ai_analyzed_news_thai(symbol):
     news_list = []
     translator = GoogleTranslator(source='auto', target='th') if HAS_TRANSLATOR else None
     
-    # 1. Finnhub (US/Crypto)
+    # 1. Finnhub
     finnhub_news = get_finnhub_news(symbol)
     if finnhub_news:
         for item in finnhub_news:
@@ -195,8 +197,7 @@ def get_ai_analyzed_news_thai(symbol):
             if translator:
                 try: 
                     title_th = translator.translate(title)
-                    if summary:
-                        summary_th = translator.translate(summary)
+                    if summary: summary_th = translator.translate(summary)
                 except: pass
                 
             news_list.append({
@@ -204,7 +205,7 @@ def get_ai_analyzed_news_thai(symbol):
                 'sentiment': sentiment, 'class': color, 'icon': icon, 'score': score, 'source': 'Finnhub'
             })
             
-    # 2. Google RSS (Backup/Thai Stocks)
+    # 2. Google RSS
     if len(news_list) < 3:
         try:
             clean_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
@@ -234,8 +235,7 @@ def get_ai_analyzed_news_thai(symbol):
                 if translator:
                     try: 
                         title_th = translator.translate(title)
-                        if summary:
-                            summary_th = translator.translate(summary)
+                        if summary: summary_th = translator.translate(summary)
                     except: pass
 
                 news_list.append({
@@ -243,8 +243,39 @@ def get_ai_analyzed_news_thai(symbol):
                     'sentiment': sentiment, 'class': color, 'icon': icon, 'score': score, 'source': 'Google News'
                 })
         except: pass
-        
     return news_list[:10]
+
+# --- NEW: Full Article Fetcher & Translator ---
+@st.cache_data(ttl=3600)
+def fetch_and_translate_full_article(url):
+    if not HAS_NEWSPAPER:
+        return "❌ กรุณาติดตั้ง Library: pip install newspaper3k lxml_html_clean", ""
+    
+    try:
+        article = Article(url)
+        article.download()
+        article.parse()
+        
+        full_text = article.text
+        title = article.title
+        
+        # Translate
+        title_th = title
+        text_th = full_text
+        
+        if HAS_TRANSLATOR and full_text:
+            translator = GoogleTranslator(source='auto', target='th')
+            try:
+                title_th = translator.translate(title)
+                # Chunk translation (max 4500 chars per chunk)
+                chunks = [full_text[i:i+4500] for i in range(0, len(full_text), 4500)]
+                translated_chunks = [translator.translate(chunk) for chunk in chunks]
+                text_th = "\n\n".join(translated_chunks)
+            except: pass
+            
+        return title_th, text_th
+    except Exception as e:
+        return "❌ ไม่สามารถดึงเนื้อหาข่าวได้ (เว็บไซต์อาจป้องกัน Bot)", str(e)
 
 # --- S/R & AI Logic ---
 def generate_dynamic_insight(price, pivots, dynamics):
@@ -524,7 +555,7 @@ if symbol:
         """, unsafe_allow_html=True)
 
         # --- TABS ---
-        tabs = st.tabs(["📈 Chart", "📊 Stats & Funda", "📰 AI News", "🎯 S/R & Setup", "💰 Entry", "🤖 AI Verdict", "🛡️ S/R Dynamics", "🇹🇭 Bitkub AI S/R"])
+        tabs = st.tabs(["📈 Chart", "📊 Stats & Funda", "📰 AI News", "📖 Full Reader", "🎯 S/R & Setup", "💰 Entry", "🤖 AI Verdict", "🛡️ S/R Dynamics", "🇹🇭 Bitkub AI S/R"])
 
         # Tab 1: Chart
         with tabs[0]:
@@ -594,7 +625,7 @@ if symbol:
             else:
                 st.info("ไม่พบข้อมูลพื้นฐาน (Fundamental Data) สำหรับสินทรัพย์นี้ (อาจเป็น Crypto หรือ Commodity)")
 
-        # Tab 3: AI News (Hybrid & Summarized)
+        # Tab 3: AI News (With Button to Read Full)
         with tabs[2]:
             st.markdown("### 📰 AI Sentiment Analysis (วิเคราะห์อารมณ์ข่าว)")
             if news_list:
@@ -610,15 +641,35 @@ if symbol:
                         </div>
                         <h4 style="color:#fff; margin:15px 0 5px 0;">{n['title_th']}</h4>
                         {summary_html}
-                        <div style="margin-top:15px; text-align:right;">
-                            <a href="{n['link']}" target="_blank" style="color:#00E5FF; font-size:0.9rem; text-decoration:none;">🔗 อ่านข่าวต้นฉบับฉบับเต็ม</a>
-                        </div>
                     </div>
                     """, unsafe_allow_html=True)
+                    
+                    # Button to read full article
+                    if st.button(f"📖 อ่านฉบับเต็ม + แปลไทย", key=n['link']):
+                        st.session_state.article_url = n['link']
+                        st.success("✅ เนื้อหาถูกส่งไปที่แท็บ '📖 Full Reader' แล้ว กรุณากดเลือกแท็บเพื่ออ่าน")
+                    
+                    st.markdown("---")
             else: st.info("ไม่พบข่าวในขณะนี้ หรือ API ถูกจำกัดการเข้าถึง")
 
-        # Tab 4: S/R & Setup
+        # Tab 4: Full Reader (NEW)
         with tabs[3]:
+            st.markdown("### 📖 Full Article Reader (โหมดอ่านฉบับเต็ม)")
+            if st.session_state.article_url:
+                st.info(f"กำลังประมวลผลบทความจาก: {st.session_state.article_url}")
+                with st.spinner("🤖 AI กำลังแกะเนื้อหาและแปลภาษา... (อาจใช้เวลาสักครู่)"):
+                    title_th, text_th = fetch_and_translate_full_article(st.session_state.article_url)
+                    
+                    st.markdown(f"## {title_th}")
+                    st.markdown("---")
+                    st.write(text_th)
+                    st.markdown("---")
+                    st.caption("แปลโดย AI (Google Translate) | ข้อมูลดึงโดย Newspaper3k")
+            else:
+                st.warning("👈 กรุณากดปุ่ม 'อ่านฉบับเต็ม' จากหน้า AI News ก่อนครับ")
+
+        # Tab 5: S/R & Setup
+        with tabs[4]:
             st.markdown("### 🛡️ Key Levels (แนวรับ-แนวต้าน)")
             res_list = sorted([l['price'] for l in sr_levels if l['price'] > curr_price])[:3]
             sup_list = sorted([l['price'] for l in sr_levels if l['price'] < curr_price], reverse=True)[:3]
@@ -632,24 +683,24 @@ if symbol:
             if setup:
                 st.markdown(f"""<div class="glass-card" style="text-align:center; border:2px solid {setup['color']}"><h1 style="color:{setup['color']}">{setup['signal']}</h1><p style="font-size:1.5rem;">{setup['trend']}</p></div>""", unsafe_allow_html=True)
 
-        # Tab 5: Entry
-        with tabs[4]:
+        # Tab 6: Entry
+        with tabs[5]:
             st.markdown("### 💰 Entry Levels")
             t1, t2, t3 = curr_price*0.99, curr_price*0.97, curr_price*0.94
             st.markdown(f"""<div style="background:#111; padding:20px; border-left:5px solid #00E5FF; margin-bottom:10px; font-size:1.2rem;"><b>Probe Buy (20%):</b> {t1:,.2f}</div>""", unsafe_allow_html=True)
             st.markdown(f"""<div style="background:#111; padding:20px; border-left:5px solid #FFD600; margin-bottom:10px; font-size:1.2rem;"><b>Accumulate (30%):</b> {t2:,.2f}</div>""", unsafe_allow_html=True)
             st.markdown(f"""<div style="background:#111; padding:20px; border-left:5px solid #FF1744; font-size:1.2rem;"><b>Sniper Zone (50%):</b> {t3:,.2f}</div>""", unsafe_allow_html=True)
 
-        # Tab 6: AI Verdict
-        with tabs[5]:
+        # Tab 7: AI Verdict
+        with tabs[6]:
             st.markdown("### 🤖 AI Market Analysis")
             if ai_score >= 70: score_color = "#00E676"
             elif ai_score <= 30: score_color = "#FF1744"
             else: score_color = "#FFD600"
             st.markdown(f"""<div class="ai-card" style="text-align:center; border-color:{score_color};"><div class="ai-score-circle" style="border-color:{score_color}; color:{score_color};">{ai_score}</div><div style="font-size:2rem; font-weight:bold; color:{score_color};">{ai_verdict}</div><p>{ai_text}</p></div>""", unsafe_allow_html=True)
             
-        # Tab 7: S/R Dynamics (With AI Insight)
-        with tabs[6]:
+        # Tab 8: S/R Dynamics (With AI Insight)
+        with tabs[7]:
             pivots = calculate_pivot_points(df)
             dynamic = calculate_dynamic_levels(df)
             col_static, col_dynamic = st.columns(2)
@@ -686,8 +737,8 @@ if symbol:
                 t_msg, t_col, a_msg = generate_dynamic_insight(curr_price, pivots, dynamic)
                 st.markdown(f"""<div style="background:#111; border:1px solid {t_col}; padding:20px; border-radius:15px;"><h3 style="color:{t_col}; margin-top:0;">🧠 AI Insight: {t_msg}</h3><p style="font-size:1.1rem;">{a_msg}</p></div>""", unsafe_allow_html=True)
 
-        # Tab 8: Bitkub AI S/R
-        with tabs[7]:
+        # Tab 9: Bitkub AI S/R
+        with tabs[8]:
             st.markdown("### 🇹🇭 Bitkub AI Support & Resistance (บาท)")
             bk_coin_sel = st.radio("เลือกเหรียญ (THB Pair)", ["BTC", "ETH"], horizontal=True)
             if bk_data:
