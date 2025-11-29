@@ -115,6 +115,7 @@ st.markdown("""
             border: 1px solid #333; margin-bottom: 10px; font-size: 0.95rem;
         }
         
+        /* AI Article */
         .ai-article {
             background: rgba(255, 255, 255, 0.05);
             padding: 20px; border-radius: 15px;
@@ -159,7 +160,7 @@ def get_stock_info(symbol):
     try: return yf.Ticker(symbol).info
     except: return None
 
-# --- NEW: AI Guru Analysis Logic (Enhanced) ---
+# --- AI Guru Analysis Logic (Corrected) ---
 def analyze_stock_guru(info, setup, symbol):
     # 1. Get Data
     pe = info.get('trailingPE')
@@ -167,23 +168,51 @@ def analyze_stock_guru(info, setup, symbol):
     pb = info.get('priceToBook')
     roe = info.get('returnOnEquity', 0)
     profit_margin = info.get('profitMargins', 0)
+    rev_growth = info.get('revenueGrowth', 0)
     sector = info.get('sector', 'General')
     
     # 2. Valuation Score (Max 10)
     val_score = 0
+    reasons_q = []
+    reasons_v = []
+
+    if roe and roe > 0.15: 
+        reasons_q.append("✅ ROE สูง (>15%) บริหารทุนเก่ง")
+    elif roe and roe < 0:
+        reasons_q.append("❌ ROE ติดลบ ขาดทุน")
+        
+    if profit_margin and profit_margin > 0.10: 
+        reasons_q.append("✅ อัตรากำไรดี (>10%)")
+    
+    if rev_growth and rev_growth > 0: 
+        reasons_q.append("✅ รายได้เติบโต")
+    else:
+        reasons_q.append("⚠️ รายได้ไม่โต หรือหดตัว")
     
     # PE Logic
     if pe:
-        if pe < 15: val_score += 3 # ถูกมาก
-        elif pe < 25: val_score += 2 # เหมาะสม
-        elif pe < 40: val_score += 1 # เริ่มแพง
-    else: val_score += 1 # No Data
+        if pe < 15: 
+            val_score += 3 
+            reasons_v.append("✅ P/E ต่ำ (ถูก)")
+        elif pe < 25: 
+            val_score += 2 
+            reasons_v.append("⚖️ P/E เหมาะสม")
+        elif pe < 40: 
+            val_score += 1 
+            reasons_v.append("⚠️ P/E เริ่มสูง")
+    else: val_score += 1
     
     # PEG Logic (Growth)
     if peg:
-        if peg < 1.0: val_score += 3 # โตคุ้มราคา
-        elif peg < 2.0: val_score += 2 # ปกติ
-        else: val_score += 0 # โตไม่ทันราคา
+        if peg < 1.0: 
+            val_score += 3 
+            reasons_v.append("✅ PEG < 1 (โตคุ้มราคา)")
+        elif peg < 2.0: 
+            val_score += 2 
+            reasons_v.append("⚖️ PEG ปกติ")
+        else: 
+            val_score += 0
+            reasons_v.append("❌ PEG สูง (โตไม่ทันราคา)")
     
     # PB Logic
     if pb and pb < 3: val_score += 2
@@ -191,30 +220,25 @@ def analyze_stock_guru(info, setup, symbol):
     # ROE Bonus
     if roe and roe > 0.15: val_score += 2
 
-    # Cap at 10
     val_score = min(10, val_score)
 
-    # 3. Verdict Text Generation (AI Writing)
+    # 3. Verdict Text Generation
     intro = f"จากการวิเคราะห์หุ้น **{symbol}** ในกลุ่มอุตสาหกรรม **{sector}** ด้วยระบบ AI Guru พบข้อมูลที่น่าสนใจดังนี้:\n\n"
     
-    # Valuation Analysis
     if pe:
         if pe < 15: val_text = f"ในมุมมองความคุ้มค่า (Valuation) หุ้นตัวนี้ถือว่า **'ราคาถูก (Undervalued)'** เมื่อเทียบกับกำไรที่ทำได้ โดยมีค่า P/E อยู่ที่ {pe:.2f} ซึ่งต่ำกว่าเกณฑ์มาตรฐาน "
         elif pe > 40: val_text = f"ในมุมมองความคุ้มค่า ราคาหุ้นปัจจุบันค่อนข้าง **'แพง (Overvalued)'** มีค่า P/E สูงถึง {pe:.2f} สะท้อนความคาดหวังของนักลงทุนที่สูงมาก "
         else: val_text = f"ราคาหุ้นปัจจุบันถือว่า **'สมเหตุสมผล (Fair Price)'** มีค่า P/E อยู่ที่ {pe:.2f} เป็นระดับที่ยอมรับได้ "
     else: val_text = "ไม่สามารถประเมินค่า P/E ได้ชัดเจน (อาจขาดทุนหรือเป็นกองทุน) "
 
-    # Growth Analysis (PEG)
     if peg:
         if peg < 1: val_text += f"และเมื่อเทียบกับการเติบโต (Growth) ถือว่าคุ้มค่ามาก (PEG {peg:.2f}) แปลว่ากำไรบริษัทโตเร็วกว่าราคาหุ้น "
         elif peg > 2: val_text += f"แต่เมื่อดูการเติบโตเทียบราคา (PEG {peg:.2f}) ถือว่าราคาขึ้นไปรอกำไรในอนาคตแล้ว (Growth Priced In) "
     
-    # Quality Analysis
     qual_text = ""
     if roe and roe > 0.15: qual_text = f"\n\nด้านคุณภาพบริษัท (Quality) จัดว่ายอดเยี่ยม มี ROE สูงถึง {roe*100:.1f}% แสดงถึงความสามารถในการบริหารเงินทุนของผู้บริหารที่เก่งกาจ "
     elif profit_margin and profit_margin < 0.05: qual_text = f"\n\nด้านคุณภาพอาจต้องระวังเรื่องอัตรากำไรที่ค่อนข้างบาง ({profit_margin*100:.1f}%) ซึ่งอาจเปราะบางต่อเศรษฐกิจ "
 
-    # Technical Integration
     tech_text = f"\n\n**คำแนะนำเชิงกลยุทธ์:** เมื่อประกอบกับกราฟเทคนิคที่เป็น **{setup['trend']}** "
     if setup['trend'] == "UPTREND (ขาขึ้น)":
         if val_score >= 7: 
@@ -240,7 +264,9 @@ def analyze_stock_guru(info, setup, symbol):
         "verdict": status,
         "color": color,
         "val_score": val_score,
-        "article": full_article
+        "article": full_article,
+        "reasons_q": reasons_q,
+        "reasons_v": reasons_v
     }
 
 def get_sector_pe_benchmark(sector):
@@ -656,6 +682,16 @@ if symbol:
                     {guru['article']}
                 </div>
                 """, unsafe_allow_html=True)
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.markdown("#### 🏢 Quality Score (พื้นฐาน)")
+                    for r in guru['reasons_q']:
+                        st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
+                with c2:
+                    st.markdown("#### ⚖️ Valuation Score (ความคุ้มค่า)")
+                    for r in guru['reasons_v']:
+                        st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
             else:
                 st.info("⚠️ ไม่สามารถวิเคราะห์ได้ (ไม่มีข้อมูลพื้นฐาน/งบการเงิน) สำหรับสินทรัพย์นี้")
 
@@ -673,28 +709,4 @@ if symbol:
                     <div class='ai-insight-box' style='text-align:center; border:2px solid {ai_bk['color']};'>
                         <div style='font-size:3rem; font-weight:900; color:#fff;'>{last:,.0f} <span style='font-size:1.5rem;'>THB</span></div>
                         <div style='font-size:1.5rem; font-weight:bold; color:{ai_bk['color']}; text-transform:uppercase;'>{ai_bk['status']}</div>
-                        <p style='margin-top:10px; color:#ccc;'>🧠 AI: {ai_bk['insight']}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        st.markdown("#### 🤖 Intraday Levels")
-                        for l in ai_bk['levels']:
-                            cls = "sr-res" if l['type']=='res' else "sr-sup" if l['type']=='sup' else "sr-piv"
-                            st.markdown(f"<div class='sr-card {cls}'><b>{l['name']}</b><span>{l['price']:,.0f}</span></div>", unsafe_allow_html=True)
-                    with c2:
-                        st.markdown("#### 📐 Golden Zone")
-                        st.info(f"**Bottom:** {ai_bk['fib']['bot']:,.0f}\n\n**Top:** {ai_bk['fib']['top']:,.0f}")
-                        with st.expander("ℹ️ Golden Zone คืออะไร?"):
-                            st.write("""
-                            **Golden Zone (Fibonacci Golden Pocket)** คือโซนราคาระหว่าง **61.8%** และ **38.2%** ของช่วงราคา High-Low ในรอบ 24 ชั่วโมงที่ผ่านมา
-                            
-                            *   **หากราคาอยู่เหนือโซนนี้:** มีแนวโน้มจะขึ้นต่อ (Bullish)
-                            *   **หากราคาหลุดโซนนี้:** มีแนวโน้มจะลงต่อ (Bearish)
-                            *   **ใช้เป็นแนวรับ/ต้าน:** โซนนี้มักมีนัยยะสำคัญในการกลับตัวของราคา
-                            """)
-                else: st.error("ไม่พบข้อมูล")
-            else: st.warning("Connecting...")
-
-    else: st.error("❌ ไม่พบข้อมูลหุ้น/เหรียญนี้")
+                        <p style='margin-top:10px; color:#ccc
