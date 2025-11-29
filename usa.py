@@ -14,7 +14,8 @@ import re
 
 # --- Libraries Setup ---
 try:
-    from newspaper import Article
+    # เพิ่ม Config เพื่อตั้งค่า User-Agent
+    from newspaper import Article, Config 
     HAS_NEWSPAPER = True
 except ImportError:
     HAS_NEWSPAPER = False
@@ -144,53 +145,71 @@ def get_ai_analyzed_news_thai(symbol):
         except: pass
     return news_list[:10]
 
+# --- UPDATED: Robust Article Fetcher with User-Agent ---
 @st.cache_data(ttl=3600)
 def fetch_full_article(url):
-    if not HAS_NEWSPAPER: return "Error: Install newspaper3k", ""
+    if not HAS_NEWSPAPER: return "❌ Error", "กรุณาติดตั้ง: pip install newspaper3k"
+    
     try:
-        art = Article(url)
-        art.download()
-        art.parse()
-        title, text = art.title, art.text
-        if HAS_TRANSLATOR and text:
-            trans = GoogleTranslator(source='auto', target='th')
+        # 1. ตั้งค่า User-Agent หลอกว่าเป็น Chrome
+        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        config = Config()
+        config.browser_user_agent = user_agent
+        config.request_timeout = 10
+        config.fetch_images = False
+
+        # 2. Download
+        article = Article(url, config=config)
+        article.download()
+        article.parse()
+        
+        full_text = article.text
+        title = article.title
+        
+        # 3. Check Content
+        if not full_text or len(full_text) < 50:
+            return "⚠️ ไม่สามารถแกะเนื้อหาได้", f"เว็บไซต์นี้มีการป้องกันบอทขั้นสูง หรือเป็นเนื้อหา Premium \n\n🔗 กรุณากดอ่านที่ต้นฉบับ: {url}"
+
+        # 4. Translate
+        title_th = title
+        text_th = full_text
+        
+        if HAS_TRANSLATOR and full_text:
+            translator = GoogleTranslator(source='auto', target='th')
             try:
-                title = trans.translate(title)
-                chunks = [text[i:i+4000] for i in range(0, len(text), 4000)]
-                text = "\n\n".join([trans.translate(c) for c in chunks])
-            except: pass
-        return title, text
-    except: return "Cannot fetch article", "เนื้อหาถูกป้องกันหรือเข้าถึงไม่ได้"
+                title_th = translator.translate(title)
+                chunks = [full_text[i:i+4000] for i in range(0, len(full_text), 4000)]
+                translated_chunks = [translator.translate(chunk) for chunk in chunks]
+                text_th = "\n\n".join(translated_chunks)
+            except: 
+                text_th = full_text + "\n\n(แปลภาษาล้มเหลว แสดงภาษาเดิม)"
+            
+        return title_th, text_th
+
+    except Exception as e:
+        return "❌ Error Fetching", f"เกิดข้อผิดพลาด: {str(e)} \n\nลิงก์นี้อาจมีการป้องกัน (Cloudflare/Paywall)"
 
 def calculate_technical_setup(df):
     try:
-        # Calculate full series for Plotting
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
         rs = gain / loss
-        rsi_series = 100 - (100 / (1 + rs)) # Series
+        rsi_series = 100 - (100 / (1 + rs))
         
-        # Calculate scalars for Logic
         close = df['Close'].iloc[-1]
         ema50 = df['Close'].ewm(span=50).mean().iloc[-1]
         ema200 = df['Close'].ewm(span=200).mean().iloc[-1]
         tr = pd.concat([df['High']-df['Low'], abs(df['High']-df['Close'].shift()), abs(df['Low']-df['Close'].shift())], axis=1).max(axis=1)
         atr = tr.rolling(14).mean().iloc[-1]
         
-        rsi_val = rsi_series.iloc[-1] # Scalar
+        rsi_val = rsi_series.iloc[-1]
 
         if close > ema50 and ema50 > ema200: trend, sig, col, sc = "Uptrend", "BUY", "#00E676", 2
         elif close < ema50 and ema50 < ema200: trend, sig, col, sc = "Downtrend", "SELL", "#FF1744", -2
         else: trend, sig, col, sc = "Sideways", "WAIT", "#888", 0
         
-        return {
-            'trend': trend, 'signal': sig, 'color': col, 
-            'rsi': rsi_series, 'rsi_val': rsi_val,
-            'entry': close, 
-            'sl': close-(1.5*atr) if sc>=0 else close+(1.5*atr), 
-            'tp': close+(2.5*atr) if sc>=0 else close-(2.5*atr)
-        }
+        return {'trend': trend, 'signal': sig, 'color': col, 'rsi': rsi_series, 'rsi_val': rsi_val, 'entry': close, 'sl': close-(1.5*atr) if sc>=0 else close+(1.5*atr), 'tp': close+(2.5*atr) if sc>=0 else close-(2.5*atr)}
     except: return None
 
 def get_levels(df):
@@ -267,7 +286,6 @@ def gen_ai_verdict(setup, news):
     if setup['trend'] == "Uptrend": score += 20; text += "📈 เทคนิคขาขึ้น "
     elif setup['trend'] == "Downtrend": score -= 20; text += "📉 เทคนิคขาลง "
     
-    # Use scalar value rsi_val here
     if setup['rsi_val'] > 70: score -= 5; text += "(RSI Overbought) "
     elif setup['rsi_val'] < 30: score += 5; text += "(RSI Oversold) "
     
@@ -319,7 +337,6 @@ if symbol:
         info = get_stock_info(symbol)
         ai_txt, ai_sc, ai_vd = gen_ai_verdict(setup, news)
         
-        # --- FIX: Define score_color here ---
         if ai_sc >= 70: score_color = "#00E676"
         elif ai_sc <= 30: score_color = "#FF1744"
         else: score_color = "#FFD600"
@@ -341,7 +358,6 @@ if symbol:
             fig = make_subplots(rows=2, cols=1, row_heights=[0.7, 0.3], shared_xaxes=True)
             fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
             fig.add_trace(go.Scatter(x=df.index, y=df['Close'].ewm(span=50).mean(), line=dict(color='#2962FF'), name="EMA50"), row=1, col=1)
-            # Use full RSI series for plotting
             rsi_plot = setup['rsi'] if setup else [50]*len(df)
             fig.add_trace(go.Scatter(x=df.index, y=rsi_plot, line=dict(color='#AA00FF'), name="RSI"), row=2, col=1)
             fig.add_hline(y=70, line_color='red', line_dash='dot', row=2, col=1)
