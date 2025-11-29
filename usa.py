@@ -37,64 +37,76 @@ if 'symbol' not in st.session_state: st.session_state.symbol = 'BTC-USD'
 
 def set_symbol(sym): st.session_state.symbol = sym
 
-# --- 2. CSS Styling (Ultra Black UI) ---
+# --- 2. CSS Styling (Modern Dashboard) ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap');
         html, body, [class*="css"] { font-family: 'Kanit', sans-serif; }
         
-        .stApp { background-color: #000000 !important; color: #ffffff; }
+        .stApp { background-color: #050505 !important; color: #e0e0e0; }
         
-        /* Input Field */
+        /* Modern Input */
         div[data-testid="stTextInput"] input { 
             background-color: #111 !important; color: #fff !important; 
             font-weight: bold !important; font-size: 1.2rem !important;
-            border: 2px solid #00E5FF !important; border-radius: 10px;
+            border: 1px solid #333 !important; border-radius: 12px;
+            padding: 10px 15px !important;
         }
+        div[data-testid="stTextInput"] input:focus { border-color: #00E5FF !important; }
 
-        /* Cards */
+        /* Glass Cards */
         .glass-card {
-            background: rgba(20, 20, 20, 0.8); backdrop-filter: blur(10px);
-            border-radius: 20px; border: 1px solid #333;
-            padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0, 229, 255, 0.1);
+            background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+            border: 1px solid #333; border-radius: 20px;
+            padding: 25px; margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         
         /* Stat Box */
         .stat-box { 
-            background: #0a0a0a; border-radius: 15px; padding: 15px; 
-            text-align: center; border: 1px solid #222; 
+            background: #111; border-radius: 12px; padding: 15px; 
+            text-align: center; border: 1px solid #222; margin-bottom: 10px;
         }
-        .stat-val { font-size: 1.8rem; font-weight: 800; color: #fff; }
-        .stat-lbl { color: #888; font-size: 0.9rem; text-transform: uppercase; }
+        .stat-val { font-size: 1.5rem; font-weight: 700; color: #fff; }
+        .stat-lbl { color: #666; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
 
         /* News Card */
         .news-card { 
             padding: 20px; margin-bottom: 15px; background: #111; 
-            border-radius: 12px; border-left: 5px solid #888; 
-            transition: all 0.3s ease;
+            border-radius: 15px; border-left: 4px solid #888; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
-        .news-card:hover { transform: translateX(5px); background: #1a1a1a; }
         .nc-pos { border-left-color: #00E676; }
         .nc-neg { border-left-color: #FF1744; }
         .nc-neu { border-left-color: #FFD600; }
 
-        /* Bitkub Badge */
-        .bk-badge {
-            background: #111; padding: 12px; border-radius: 12px; 
-            border: 1px solid #333; margin-bottom: 8px;
-            display: flex; justify-content: space-between; align-items: center;
+        /* VERDICT DASHBOARD */
+        .verdict-container {
+            display: flex; flex-direction: column; align-items: center;
+            background: #0f0f0f; border-radius: 25px; padding: 30px;
+            border: 1px solid #333; position: relative; overflow: hidden;
         }
-
-        /* AI Verdict */
-        .ai-circle {
-            width: 120px; height: 120px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 3rem; font-weight: bold; margin: 0 auto;
-            border: 6px solid #333;
+        .verdict-score-ring {
+            width: 150px; height: 150px; border-radius: 50%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 3.5rem; font-weight: 800; color: #fff;
+            border: 8px solid #333; box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            margin-bottom: 20px; background: #000;
         }
-
-        /* Custom Tabs */
-        button[data-baseweb="tab"] { font-size: 1rem !important; font-weight: 600 !important; }
+        .verdict-label {
+            font-size: 2.5rem; font-weight: 900; text-transform: uppercase;
+            letter-spacing: 2px; margin-bottom: 10px; text-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .factor-card {
+            background: #161616; padding: 15px; border-radius: 10px;
+            border-left: 3px solid #444; margin-top: 10px; width: 100%;
+        }
+        
+        /* Tabs */
+        button[data-baseweb="tab"] { 
+            font-size: 1rem !important; font-weight: 600 !important; 
+            border-radius: 5px !important; margin: 0 2px !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -153,7 +165,7 @@ def get_ai_analyzed_news_thai(symbol):
             
             news_list.append({'title': t_th, 'summary': s_th, 'link': l, 'icon': icon, 'class': cls, 'score': sc, 'source': 'Finnhub'})
 
-    # 2. Google News (Backup)
+    # 2. Google News
     if len(news_list) < 3:
         try:
             cl_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
@@ -201,9 +213,9 @@ def calculate_technical_setup(df):
         
         rsi_val = rsi_series.iloc[-1]
 
-        if close > ema50 and ema50 > ema200: trend, sig, col, sc = "Uptrend (ขาขึ้น)", "BUY", "#00E676", 2
-        elif close < ema50 and ema50 < ema200: trend, sig, col, sc = "Downtrend (ขาลง)", "SELL", "#FF1744", -2
-        else: trend, sig, col, sc = "Sideways (ออกข้าง)", "WAIT", "#888", 0
+        if close > ema50 and ema50 > ema200: trend, sig, col, sc = "UPTREND (ขาขึ้น)", "BUY", "#00E676", 2
+        elif close < ema50 and ema50 < ema200: trend, sig, col, sc = "DOWNTREND (ขาลง)", "SELL", "#FF1744", -2
+        else: trend, sig, col, sc = "SIDEWAYS (ออกข้าง)", "WAIT", "#FFD600", 0
         
         return {
             'trend': trend, 'signal': sig, 'color': col, 
@@ -241,7 +253,6 @@ def generate_dynamic_insight(price, pivots, dynamics):
     else:
         msg, col = ("Bearish Strong (ลงหนัก)", "#FF1744") if price < e20 else ("Bearish Correction (ดีดตัว)", "#FF1744")
     
-    # Find nearest level
     all_lvls = {**pivots, **{k:v for k,v in dynamics.items() if k!='Current'}}
     n_name, n_price, min_d = "", 0, float('inf')
     for k,v in all_lvls.items():
@@ -276,28 +287,29 @@ def calculate_heikin_ashi(df):
 
 def gen_ai_verdict(setup, news):
     score = 50
-    text = ""
+    tech_txt = ""
+    news_txt = ""
     
     # Technical
-    if setup['trend'] == "Uptrend (ขาขึ้น)": score += 20; text += "📈 กราฟเทคนิคเป็นขาขึ้น "
-    elif setup['trend'] == "Downtrend (ขาลง)": score -= 20; text += "📉 กราฟเทคนิคเป็นขาลง "
+    if setup['trend'] == "Uptrend (ขาขึ้น)": score += 20; tech_txt = "📈 กราฟหลักเป็นขาขึ้น (Uptrend) แข็งแกร่ง"
+    elif setup['trend'] == "Downtrend (ขาลง)": score -= 20; tech_txt = "📉 กราฟหลักเป็นขาลง (Downtrend) กดดัน"
+    else: tech_txt = "⚖️ กราฟแกว่งตัวออกข้าง (Sideways) รอเลือกทาง"
     
-    if setup['rsi_val'] > 70: score -= 5; text += "(RSI ตึงตัว ระวังแรงขาย) "
-    elif setup['rsi_val'] < 30: score += 5; text += "(RSI ขายมากเกิน รอเด้ง) "
+    if setup['rsi_val'] > 70: score -= 5; tech_txt += " แต่ RSI เริ่มตึงตัว (Overbought)"
+    elif setup['rsi_val'] < 30: score += 5; tech_txt += " แต่ RSI ขายมากเกินไป (Oversold)"
     
     # News
     n_score = sum([n['score'] for n in news]) if news else 0
-    if n_score > 0.5: score += 15; text += "\n📰 ข่าวสารเป็นใจ สนับสนุนราคา"
-    elif n_score < -0.5: score -= 15; text += "\n📰 มีข่าวลบกดดันตลาด"
+    if n_score > 0.5: score += 15; news_txt = "📰 ข่าวสารภาพรวมเป็นบวก ช่วยหนุนราคา"
+    elif n_score < -0.5: score -= 15; news_txt = "📰 ข่าวสารภาพรวมเป็นลบ สร้างแรงกดดัน"
+    else: news_txt = "📰 ข่าวสารทั่วไป ยังไม่มีนัยยะสำคัญ"
     
     score = max(0, min(100, score))
     verd = "STRONG BUY" if score>=75 else "BUY" if score>=55 else "SELL" if score<=25 else "STRONG SELL" if score<=15 else "HOLD"
-    return text, score, verd
+    
+    return tech_txt, news_txt, score, verd
 
 # --- 4. Sidebar ---
-# เรียกใช้ API ที่นี่เพื่อให้ตัวแปร bk_data มีค่าแน่นอน
-bk_data = get_bitkub_ticker()
-
 with st.sidebar:
     st.markdown("<h1 style='text-align:center;color:#00E5FF;'>💎 ULTRA</h1>", unsafe_allow_html=True)
     
@@ -311,7 +323,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🇹🇭 Bitkub Live")
     
-    # ใช้ bk_data ที่ดึงมาแล้ว
+    bk_data = get_bitkub_ticker()
     if bk_data:
         b_p = bk_data.get('THB_BTC',{}).get('last',0)
         b_c = bk_data.get('THB_BTC',{}).get('percentChange',0)
@@ -322,8 +334,14 @@ with st.sidebar:
         e_col = "#00E676" if e_c >= 0 else "#FF1744"
         
         st.markdown(f"""
-        <div class='bk-badge'><span>BTC</span><span style='color:{b_col};font-weight:bold'>{b_p:,.0f}</span></div>
-        <div class='bk-badge'><span>ETH</span><span style='color:{e_col};font-weight:bold'>{e_p:,.0f}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span style="color:#aaa;">BTC</span>
+            <span style="color:{b_col};font-weight:bold;">{b_p:,.0f}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+            <span style="color:#aaa;">ETH</span>
+            <span style="color:{e_col};font-weight:bold;">{e_p:,.0f}</span>
+        </div>
         """, unsafe_allow_html=True)
     
     st.markdown("---")
@@ -352,20 +370,22 @@ if symbol:
         setup = calculate_technical_setup(df)
         news = get_ai_analyzed_news_thai(symbol)
         info = get_stock_info(symbol)
-        ai_txt, ai_sc, ai_vd = gen_ai_verdict(setup, news)
         
-        # Determine score color (Define Variable Here!)
-        if ai_sc >= 75: sc_color = "#00E676"
-        elif ai_sc <= 25: sc_color = "#FF1744"
-        else: sc_color = "#FFD600"
+        # Calculate Verdict
+        tech_txt, news_txt, ai_sc, ai_vd = gen_ai_verdict(setup, news)
+        
+        # Verdict Color & Glow
+        if ai_sc >= 70: sc_color, sc_glow = "#00E676", "rgba(0, 230, 118, 0.4)"
+        elif ai_sc <= 30: sc_color, sc_glow = "#FF1744", "rgba(255, 23, 68, 0.4)"
+        else: sc_color, sc_glow = "#FFD600", "rgba(255, 214, 0, 0.4)"
 
-        # --- Hero Section ---
+        # --- Hero Header ---
         st.markdown(f"""
         <div class="glass-card" style="border-top:5px solid {color};text-align:center;">
-            <div style="font-size:4rem;font-weight:900;line-height:1;">{symbol}</div>
-            <div style="font-size:3.5rem;color:{color};font-weight:bold;">{curr:,.2f}</div>
-            <div style="background:{color}20;padding:5px 25px;border-radius:20px;display:inline-block;margin-top:10px;">
-                <span style="color:{color};font-weight:bold;font-size:1.2rem;">{chg:+.2f} ({pct:+.2f}%)</span>
+            <div style="font-size:3.5rem;font-weight:900;line-height:1;margin-bottom:10px;">{symbol}</div>
+            <div style="font-size:3rem;color:{color};font-weight:bold;">{curr:,.2f}</div>
+            <div style="background:{color}20;padding:5px 20px;border-radius:20px;display:inline-block;margin-top:10px;">
+                <span style="color:{color};font-weight:bold;font-size:1.1rem;">{chg:+.2f} ({pct:+.2f}%)</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -376,26 +396,19 @@ if symbol:
         # 1. Chart
         with tabs[0]:
             fig = make_subplots(rows=2, cols=1, row_heights=[0.7, 0.3], shared_xaxes=True, vertical_spacing=0.05)
-            
-            # Candle / HA
             if chart_type == "Heikin Ashi":
                 ha = calculate_heikin_ashi(df)
                 fig.add_trace(go.Candlestick(x=df.index, open=ha['Open'], high=ha['High'], low=ha['Low'], close=ha['Close'], name="HA"), row=1, col=1)
             else:
                 fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
             
-            # EMA
             fig.add_trace(go.Scatter(x=df.index, y=df['Close'].ewm(span=50).mean(), line=dict(color='#2979FF', width=2), name="EMA50"), row=1, col=1)
             
-            # RSI
             rsi_plot = setup['rsi_series'] if setup else [50]*len(df)
             fig.add_trace(go.Scatter(x=df.index, y=rsi_plot, line=dict(color='#E040FB', width=2), name="RSI"), row=2, col=1)
             fig.add_hline(y=70, line_color='red', line_dash='dot', row=2, col=1)
             fig.add_hline(y=30, line_color='green', line_dash='dot', row=2, col=1)
-            
             fig.update_layout(template='plotly_dark', height=600, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            fig.update_xaxes(showgrid=False)
-            fig.update_yaxes(showgrid=True, gridcolor='#333')
             st.plotly_chart(fig, use_container_width=True)
 
         # 2. Stats
@@ -407,17 +420,13 @@ if symbol:
             
             if info:
                 st.markdown("---")
-                st.markdown(f"**🏢 Sector:** {info.get('sector','N/A')} | **Industry:** {info.get('industry','N/A')}")
-                
                 c1, c2, c3 = st.columns(3)
                 pe = info.get('trailingPE')
+                c1.markdown(f"<div class='stat-box'><div class='stat-lbl'>P/E Ratio</div><div class='stat-val'>{pe if pe else 'N/A'}</div></div>", unsafe_allow_html=True)
                 eps = info.get('trailingEps')
+                c2.markdown(f"<div class='stat-box'><div class='stat-lbl'>EPS</div><div class='stat-val'>{eps if eps else 'N/A'}</div></div>", unsafe_allow_html=True)
                 peg = info.get('pegRatio')
-                
-                pe_c = "#00E676" if pe and pe < 15 else "#FFD600" if pe and pe < 30 else "#FF1744"
-                c1.markdown(f"<div class='fund-box' style='border-left:4px solid {pe_c}'><div class='fund-title'>P/E Ratio</div><div class='fund-val'>{pe if pe else 'N/A'}</div></div>", unsafe_allow_html=True)
-                c2.markdown(f"<div class='fund-box' style='border-left:4px solid #fff'><div class='fund-title'>EPS</div><div class='fund-val'>{eps if eps else 'N/A'}</div></div>", unsafe_allow_html=True)
-                c3.markdown(f"<div class='fund-box' style='border-left:4px solid #fff'><div class='fund-title'>PEG Ratio</div><div class='fund-val'>{peg if peg else 'N/A'}</div></div>", unsafe_allow_html=True)
+                c3.markdown(f"<div class='stat-box'><div class='stat-lbl'>PEG Ratio</div><div class='stat-val'>{peg if peg else 'N/A'}</div></div>", unsafe_allow_html=True)
 
         # 3. AI News
         with tabs[2]:
@@ -426,67 +435,69 @@ if symbol:
                 for n in news:
                     st.markdown(f"""
                     <div class="news-card {n['class']}">
-                        <div style="display:flex;justify-content:space-between;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
                             <span style="font-size:0.8rem;background:#333;padding:2px 8px;border-radius:5px;">{n['source']}</span>
                             <span>{n['icon']}</span>
                         </div>
-                        <h4 style="margin:10px 0;">{n['title']}</h4>
-                        <p style="color:#aaa;font-size:0.9rem;">{n['summary']}</p>
-                        <div style="text-align:right;"><a href="{n['link']}" target="_blank" style="color:#00E5FF;text-decoration:none;">🔗 อ่านต่อ</a></div>
+                        <h4 style="margin:0 0 10px 0;color:#fff;">{n['title']}</h4>
+                        <p style="color:#bbb;font-size:0.9rem;line-height:1.5;">{n['summary']}</p>
+                        <div style="text-align:right;margin-top:10px;"><a href="{n['link']}" target="_blank" style="color:#00E5FF;text-decoration:none;">🔗 อ่านต่อ</a></div>
                     </div>
                     """, unsafe_allow_html=True)
             else: st.info("ไม่พบข่าว หรือ API ถูกจำกัด")
 
-        # 4. Setup & Entry
+        # 4. Setup
         with tabs[3]:
-            c_tech, c_entry = st.columns(2)
-            with c_tech:
-                st.markdown("### 🎯 Technical Status")
-                if setup:
+            if setup:
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.markdown("#### 🎯 Signal")
                     st.markdown(f"""
-                    <div style="background:#111;padding:20px;border-radius:15px;border:1px solid {setup['color']};text-align:center;">
-                        <h2 style="color:{setup['color']};margin:0;">{setup['signal']}</h2>
-                        <p style="font-size:1.2rem;margin-top:5px;">{setup['trend']}</p>
+                    <div style="background:#111;padding:30px;border-radius:15px;border:2px solid {setup['color']};text-align:center;">
+                        <h1 style="color:{setup['color']};margin:0;font-size:3rem;">{setup['signal']}</h1>
+                        <p style="font-size:1.2rem;margin-top:10px;color:#aaa;">{setup['trend']}</p>
                     </div>
                     """, unsafe_allow_html=True)
+                with c2:
+                    st.markdown("#### 💰 Trade Plan")
+                    st.markdown(f"<div style='background:#1a1a1a;padding:15px;border-radius:10px;margin-bottom:10px;border-left:5px solid #00E5FF;'><span>Entry Price</span><br><b style='font-size:1.2rem'>{setup['entry']:,.2f}</b></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='background:#1a1a1a;padding:15px;border-radius:10px;margin-bottom:10px;border-left:5px solid #00E676;'><span>Take Profit (TP)</span><br><b style='font-size:1.2rem'>{setup['tp']:,.2f}</b></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='background:#1a1a1a;padding:15px;border-radius:10px;border-left:5px solid #FF1744;'><span>Stop Loss (SL)</span><br><b style='font-size:1.2rem'>{setup['sl']:,.2f}</b></div>", unsafe_allow_html=True)
+
+        # 5. Verdict (NEW DESIGN)
+        with tabs[4]:
+            col_v1, col_v2 = st.columns([1, 1.5])
             
-            with c_entry:
-                st.markdown("### 💰 Entry Zones")
+            with col_v1:
                 st.markdown(f"""
-                <div style="display:flex;flex-direction:column;gap:10px;">
-                    <div style="background:#1a1a1a;padding:15px;border-radius:10px;border-left:5px solid #00E5FF;">
-                        <span style="color:#aaa;">Probe Buy (20%)</span><br>
-                        <span style="font-size:1.2rem;font-weight:bold;">{curr*0.99:,.2f}</span>
+                <div class="verdict-container" style="border-color:{sc_color};box-shadow:0 0 20px {sc_glow};">
+                    <div class="verdict-score-ring" style="border-color:{sc_color};color:{sc_color};">
+                        {ai_sc}
                     </div>
-                    <div style="background:#1a1a1a;padding:15px;border-radius:10px;border-left:5px solid #FFD600;">
-                        <span style="color:#aaa;">Accumulate (30%)</span><br>
-                        <span style="font-size:1.2rem;font-weight:bold;">{curr*0.97:,.2f}</span>
-                    </div>
-                    <div style="background:#1a1a1a;padding:15px;border-radius:10px;border-left:5px solid #FF1744;">
-                        <span style="color:#aaa;">Sniper (50%)</span><br>
-                        <span style="font-size:1.2rem;font-weight:bold;">{curr*0.94:,.2f}</span>
-                    </div>
+                    <div class="verdict-label" style="color:{sc_color};">{ai_vd}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col_v2:
+                st.markdown("### 🔍 AI Analysis Breakdown")
+                st.markdown(f"""
+                <div class="factor-card" style="border-left-color:{sc_color};">
+                    <h4 style="margin:0;color:#fff;">📈 Technical Insight</h4>
+                    <p style="margin-top:5px;color:#ccc;">{tech_txt}</p>
+                </div>
+                <div class="factor-card" style="border-left-color:{'#00E676' if 'บวก' in news_txt else '#FF1744'};">
+                    <h4 style="margin:0;color:#fff;">📰 News Sentiment</h4>
+                    <p style="margin-top:5px;color:#ccc;">{news_txt}</p>
                 </div>
                 """, unsafe_allow_html=True)
 
-        # 5. AI Verdict
-        with tabs[4]:
-            st.markdown(f"""
-            <div class="ai-card" style="border-color:{sc_color};">
-                <div class="ai-score-circle" style="border-color:{sc_color};color:{sc_color};">{ai_sc}</div>
-                <h2 style="color:{sc_color};">{ai_vd}</h2>
-                <p style="font-size:1.1rem;line-height:1.6;">{ai_txt}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # 6. S/R Dynamics
+        # 6. S/R Dynamic
         with tabs[5]:
             pivots = calculate_pivot_points(df)
             dynamic = calculate_dynamic_levels(df)
             
             if pivots and dynamic:
                 t_msg, t_col, a_msg = generate_dynamic_insight(curr, pivots, dynamic)
-                
                 st.markdown(f"""
                 <div style="background:#111; border:1px solid {t_col}; padding:20px; border-radius:15px; margin-bottom:20px;">
                     <h3 style="color:{t_col}; margin-top:0;">🧠 AI Insight: {t_msg}</h3>
@@ -499,35 +510,30 @@ if symbol:
                     st.markdown("#### 🧱 Static Pivots")
                     for k, v in pivots.items():
                         cl = "#FF1744" if "R" in k else "#00E676" if "S" in k else "#FFD600"
-                        st.markdown(f"<div style='display:flex;justify-content:space-between;padding:10px;background:#161616;border-left:4px solid {cl};margin-bottom:5px;'><b>{k}</b><span>{v:,.2f}</span></div>", unsafe_allow_html=True)
-                
+                        st.markdown(f"<div style='display:flex;justify-content:space-between;padding:12px;background:#161616;border-left:4px solid {cl};margin-bottom:8px;border-radius:5px;'><b>{k}</b><span>{v:,.2f}</span></div>", unsafe_allow_html=True)
                 with c2:
                     st.markdown("#### 🌊 Dynamic Levels")
                     for k, v in dynamic.items():
                         if k == "Current": continue
                         dist = ((curr - v) / v) * 100
                         cl = "#00E676" if curr > v else "#FF1744"
-                        st.markdown(f"<div style='display:flex;justify-content:space-between;padding:10px;background:#161616;border-left:4px solid {cl};margin-bottom:5px;'><div>{k}</div><div style='text-align:right;'>{v:,.2f}<br><span style='font-size:0.8rem;color:{cl}'>{dist:+.2f}%</span></div></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='display:flex;justify-content:space-between;padding:12px;background:#161616;border-left:4px solid {cl};margin-bottom:8px;border-radius:5px;'><div>{k}</div><div style='text-align:right;'>{v:,.2f} <span style='font-size:0.8rem;color:{cl}'>({dist:+.2f}%)</span></div></div>", unsafe_allow_html=True)
 
         # 7. Bitkub AI
         with tabs[6]:
-            st.markdown("### 🇹🇭 Bitkub AI Analysis")
-            bk_sel = st.radio("เลือกเหรียญ:", ["BTC", "ETH"], horizontal=True)
-            
-            # ใช้ bk_data ที่ดึงไว้แล้ว (ตัวแปรเดียวกับ sidebar)
+            bk_sel = st.radio("เลือกเหรียญ (THB)", ["BTC", "ETH"], horizontal=True)
             if bk_data:
                 pair = f"THB_{bk_sel}"
-                coin = bk_data.get(pair, {})
-                if coin:
-                    last_thb = coin.get('last', 0)
-                    h24, l24 = coin.get('high24hr', 0), coin.get('low24hr', 0)
-                    ai_bk = calculate_bitkub_ai_levels(h24, l24, last_thb)
+                d = bk_data.get(pair, {})
+                if d:
+                    last, h24, l24 = d.get('last',0), d.get('high24hr',0), d.get('low24hr',0)
+                    ai_bk = calculate_bitkub_ai_levels(h24, l24, last)
                     
                     st.markdown(f"""
                     <div style="text-align:center;padding:25px;background:#111;border-radius:20px;border:2px solid {ai_bk['color']};margin-bottom:20px;">
                         <div style="color:#aaa;">Price (THB)</div>
-                        <div style="font-size:3rem;font-weight:bold;color:#fff;">{last_thb:,.0f}</div>
-                        <div style="font-size:1.5rem;font-weight:bold;color:{ai_bk['color']};">{ai_bk['status']}</div>
+                        <div style="font-size:3.5rem;font-weight:bold;color:#fff;">{last:,.0f}</div>
+                        <div style="font-size:1.8rem;font-weight:bold;color:{ai_bk['color']};">{ai_bk['status']}</div>
                     </div>
                     """, unsafe_allow_html=True)
                     
@@ -537,7 +543,6 @@ if symbol:
                         for l in ai_bk['levels']:
                             cl = "#00E676" if l['type']=='sup' else "#FF1744" if l['type']=='res' else "#FFD600"
                             st.markdown(f"<div style='display:flex;justify-content:space-between;padding:12px;background:#161616;border-left:5px solid {cl};margin-bottom:5px;border-radius:5px;'><span style='font-weight:bold;color:{cl}'>{l['name']}</span><span>{l['price']:,.0f}</span></div>", unsafe_allow_html=True)
-                    
                     with c2:
                         st.markdown("#### 📐 Golden Zone (24H)")
                         st.info(f"**Bottom (รับ):** {ai_bk['fib']['bot']:,.0f}\n\n**Top (ต้าน):** {ai_bk['fib']['top']:,.0f}")
