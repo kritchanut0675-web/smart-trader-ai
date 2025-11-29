@@ -8,6 +8,7 @@ from textblob import TextBlob
 import feedparser
 import nltk
 import urllib.parse
+import requests  # <--- เพิ่ม Library requests
 
 # Import translation library
 try:
@@ -124,6 +125,17 @@ def get_stock_info(symbol):
     try:
         ticker = yf.Ticker(symbol)
         return ticker.info
+    except: return None
+
+# --- NEW: Get Bitkub Data ---
+@st.cache_data(ttl=15)  # Cache for 15 seconds
+def get_bitkub_ticker():
+    try:
+        url = "https://api.bitkub.com/api/market/ticker"
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+        return None
     except: return None
 
 def calculate_heikin_ashi(df):
@@ -319,6 +331,34 @@ with st.sidebar:
     if c3.button("Gold"): set_symbol("GC=F")
     if c4.button("Oil"): set_symbol("CL=F")
     
+    st.markdown("---")
+    # --- Bitkub Section ---
+    st.markdown("### 🇹🇭 Bitkub Rates (THB)")
+    bk_data = get_bitkub_ticker()
+    if bk_data:
+        # BTC
+        btc_thb = bk_data.get('THB_BTC', {}).get('last', 0)
+        btc_chg = bk_data.get('THB_BTC', {}).get('percentChange', 0)
+        c_btc = "#00E676" if btc_chg >= 0 else "#FF1744"
+        
+        # ETH
+        eth_thb = bk_data.get('THB_ETH', {}).get('last', 0)
+        eth_chg = bk_data.get('THB_ETH', {}).get('percentChange', 0)
+        c_eth = "#00E676" if eth_chg >= 0 else "#FF1744"
+
+        st.markdown(f"""
+        <div style="background:#111; padding:10px; border-radius:10px; margin-bottom:5px;">
+            <div style="font-size:0.9rem; color:#aaa;">BTC/THB</div>
+            <div style="font-size:1.2rem; font-weight:bold; color:{c_btc};">{btc_thb:,.2f}</div>
+        </div>
+        <div style="background:#111; padding:10px; border-radius:10px;">
+            <div style="font-size:0.9rem; color:#aaa;">ETH/THB</div>
+            <div style="font-size:1.2rem; font-weight:bold; color:{c_eth};">{eth_thb:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.caption("กำลังโหลดข้อมูล Bitkub...")
+        
     st.markdown("---")
     st.markdown("### ⚙️ Settings")
     chart_type = st.selectbox("Chart Style", ["Candlestick", "Heikin Ashi"])
