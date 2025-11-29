@@ -709,4 +709,28 @@ if symbol:
                     <div class='ai-insight-box' style='text-align:center; border:2px solid {ai_bk['color']};'>
                         <div style='font-size:3rem; font-weight:900; color:#fff;'>{last:,.0f} <span style='font-size:1.5rem;'>THB</span></div>
                         <div style='font-size:1.5rem; font-weight:bold; color:{ai_bk['color']}; text-transform:uppercase;'>{ai_bk['status']}</div>
-                        <p style='margin-top:10px; color:#ccc
+                        <p style='margin-top:10px; color:#ccc;'>🧠 AI: {ai_bk['insight']}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.markdown("#### 🤖 Intraday Levels")
+                        for l in ai_bk['levels']:
+                            cls = "sr-res" if l['type']=='res' else "sr-sup" if l['type']=='sup' else "sr-piv"
+                            st.markdown(f"<div class='sr-card {cls}'><b>{l['name']}</b><span>{l['price']:,.0f}</span></div>", unsafe_allow_html=True)
+                    with c2:
+                        st.markdown("#### 📐 Golden Zone")
+                        st.info(f"**Bottom:** {ai_bk['fib']['bot']:,.0f}\n\n**Top:** {ai_bk['fib']['top']:,.0f}")
+                        with st.expander("ℹ️ Golden Zone คืออะไร?"):
+                            st.write("""
+                            **Golden Zone (Fibonacci Golden Pocket)** คือโซนราคาระหว่าง **61.8%** และ **38.2%** ของช่วงราคา High-Low ในรอบ 24 ชั่วโมงที่ผ่านมา
+                            
+                            *   **หากราคาอยู่เหนือโซนนี้:** มีแนวโน้มจะขึ้นต่อ (Bullish)
+                            *   **หากราคาหลุดโซนนี้:** มีแนวโน้มจะลงต่อ (Bearish)
+                            *   **ใช้เป็นแนวรับ/ต้าน:** โซนนี้มักมีนัยยะสำคัญในการกลับตัวของราคา
+                            """)
+                else: st.error("ไม่พบข้อมูล")
+            else: st.warning("Connecting...")
+
+    else: st.error("❌ ไม่พบข้อมูลหุ้น/เหรียญนี้")
