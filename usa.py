@@ -8,7 +8,7 @@ from textblob import TextBlob
 import feedparser
 import nltk
 import urllib.parse
-import requests  # <--- เพิ่ม Library requests
+import requests
 
 # Import translation library
 try:
@@ -119,7 +119,6 @@ def get_market_data(symbol, period, interval):
         return df
     except: return pd.DataFrame()
 
-# --- NEW: Get Fundamental Info ---
 @st.cache_data(ttl=3600)
 def get_stock_info(symbol):
     try:
@@ -127,8 +126,7 @@ def get_stock_info(symbol):
         return ticker.info
     except: return None
 
-# --- NEW: Get Bitkub Data ---
-@st.cache_data(ttl=15)  # Cache for 15 seconds
+@st.cache_data(ttl=15)
 def get_bitkub_ticker():
     try:
         url = "https://api.bitkub.com/api/market/ticker"
@@ -137,6 +135,49 @@ def get_bitkub_ticker():
             return response.json()
         return None
     except: return None
+
+# --- NEW: AI Calculation for THB ---
+def calculate_bitkub_ai_levels(high24, low24, last_price):
+    # Algorithm: Hybrid 24H Pivot + Fibonacci + Round Numbers
+    
+    # 1. 24H Pivot Point (Intraday Weight)
+    pp = (high24 + low24 + last_price) / 3
+    
+    # 2. Volatility Range
+    rng = high24 - low24
+    
+    # 3. Calculate Levels
+    r1 = (2 * pp) - low24
+    s1 = (2 * pp) - high24
+    
+    r2 = pp + rng
+    s2 = pp - rng
+    
+    # 4. Fibonacci Golden Pocket (24H Swing)
+    fib_high = low24 + (rng * 0.618)
+    fib_low = low24 + (rng * 0.382)
+    
+    # 5. AI Verdict based on Position
+    mid_point = (high24 + low24) / 2
+    if last_price > mid_point:
+        status = "BULLISH (กระทิง)"
+        status_color = "#00E676"
+    else:
+        status = "BEARISH (หมี)"
+        status_color = "#FF1744"
+        
+    return {
+        "levels": [
+            {"name": "🚀 R2 (Breakout)", "price": r2, "type": "res"},
+            {"name": "🛑 R1 (Resist)", "price": r1, "type": "res"},
+            {"name": "⚖️ PIVOT (จุดหมุน)", "price": pp, "type": "neu"},
+            {"name": "🛡️ S1 (Support)", "price": s1, "type": "sup"},
+            {"name": "💎 S2 (Bottom)", "price": s2, "type": "sup"}
+        ],
+        "fib": {"top": fib_high, "bot": fib_low},
+        "status": status,
+        "color": status_color
+    }
 
 def calculate_heikin_ashi(df):
     ha_df = df.copy()
@@ -237,7 +278,6 @@ def calculate_dynamic_levels(df):
         }
     except: return None
 
-# --- AI News Analysis (Thai) ---
 @st.cache_data(ttl=3600)
 def get_ai_analyzed_news_thai(symbol):
     news_list = []
@@ -282,12 +322,10 @@ def get_ai_analyzed_news_thai(symbol):
     except: pass
     return news_list
 
-# --- AI Verdict Logic ---
 def generate_ai_analysis(df, setup, news_list):
     analysis_text = ""
     score = 50
     
-    # Technical
     if setup['trend'] == "Uptrend (ขาขึ้น)":
         analysis_text += "📈 **ด้านเทคนิค:** กราฟยังคงรักษาทรงขาขึ้นได้อย่างแข็งแกร่ง ราคายืนเหนือเส้น EMA "
         score += 25
@@ -300,7 +338,6 @@ def generate_ai_analysis(df, setup, news_list):
     if setup['rsi'] > 70: score -= 5
     elif setup['rsi'] < 30: score += 5
     
-    # News Impact
     news_score = sum([n['score'] for n in news_list]) if news_list else 0
     if news_score > 0.2:
         analysis_text += "\n\n📰 **กระแสข่าว:** ภาพรวมข่าวสารเป็นบวก สนับสนุนราคา"
@@ -332,27 +369,30 @@ with st.sidebar:
     if c4.button("Oil"): set_symbol("CL=F")
     
     st.markdown("---")
-    # --- Bitkub Section ---
     st.markdown("### 🇹🇭 Bitkub Rates (THB)")
     bk_data = get_bitkub_ticker()
     if bk_data:
-        # BTC
         btc_thb = bk_data.get('THB_BTC', {}).get('last', 0)
         btc_chg = bk_data.get('THB_BTC', {}).get('percentChange', 0)
         c_btc = "#00E676" if btc_chg >= 0 else "#FF1744"
         
-        # ETH
         eth_thb = bk_data.get('THB_ETH', {}).get('last', 0)
         eth_chg = bk_data.get('THB_ETH', {}).get('percentChange', 0)
         c_eth = "#00E676" if eth_chg >= 0 else "#FF1744"
 
         st.markdown(f"""
         <div style="background:#111; padding:10px; border-radius:10px; margin-bottom:5px;">
-            <div style="font-size:0.9rem; color:#aaa;">BTC/THB</div>
+            <div style="display:flex; justify-content:space-between;">
+                <span style="font-size:0.9rem; color:#aaa;">BTC/THB</span>
+                <span style="color:{c_btc}; font-size:0.8rem;">{btc_chg:+.2f}%</span>
+            </div>
             <div style="font-size:1.2rem; font-weight:bold; color:{c_btc};">{btc_thb:,.2f}</div>
         </div>
         <div style="background:#111; padding:10px; border-radius:10px;">
-            <div style="font-size:0.9rem; color:#aaa;">ETH/THB</div>
+            <div style="display:flex; justify-content:space-between;">
+                <span style="font-size:0.9rem; color:#aaa;">ETH/THB</span>
+                <span style="color:{c_eth}; font-size:0.8rem;">{eth_chg:+.2f}%</span>
+            </div>
             <div style="font-size:1.2rem; font-weight:bold; color:{c_eth};">{eth_thb:,.2f}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -386,7 +426,6 @@ if symbol:
     if df.empty:
         st.error(f"❌ ไม่พบข้อมูล '{symbol}'")
     else:
-        # Process Data
         curr_price = df['Close'].iloc[-1]
         change = curr_price - df['Close'].iloc[-2]
         pct = (change / df['Close'].iloc[-2]) * 100
@@ -410,8 +449,8 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
 
-        # --- TABS ---
-        tabs = st.tabs(["📈 Chart", "📊 Stats & Funda", "📰 AI News", "🎯 S/R & Setup", "💰 Entry", "🤖 AI Verdict", "🛡️ S/R Dynamics"])
+        # --- TABS (Updated with Tab 8) ---
+        tabs = st.tabs(["📈 Chart", "📊 Stats & Funda", "📰 AI News", "🎯 S/R & Setup", "💰 Entry", "🤖 AI Verdict", "🛡️ S/R Dynamics", "🇹🇭 Bitkub AI S/R"])
 
         # Tab 1: Chart
         with tabs[0]:
@@ -429,28 +468,21 @@ if symbol:
             fig.update_layout(height=600, template='plotly_dark', margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
 
-        # Tab 2: Stats & Fundamentals (NEW DESIGN)
+        # Tab 2: Stats & Fundamentals
         with tabs[1]:
-            # Basic Price Stats
             c1, c2, c3 = st.columns(3)
             c1.markdown(f"""<div class="stat-box"><div class="stat-label">High</div><div class="stat-value" style="color:#00E676;">{df['High'].max():,.2f}</div></div>""", unsafe_allow_html=True)
             c2.markdown(f"""<div class="stat-box"><div class="stat-label">Low</div><div class="stat-value" style="color:#FF1744;">{df['Low'].min():,.2f}</div></div>""", unsafe_allow_html=True)
             c3.markdown(f"""<div class="stat-box"><div class="stat-label">Vol</div><div class="stat-value" style="color:#E040FB;">{df['Volume'].iloc[-1]/1e6:.1f}M</div></div>""", unsafe_allow_html=True)
-            
             st.markdown("---")
-            
-            # --- Business Info ---
             if info:
                 sector = info.get('sector', 'N/A')
                 industry = info.get('industry', 'N/A')
                 summary = info.get('longBusinessSummary', 'No description available.')
-                
-                # Try Translate Summary
                 summary_th = summary
                 if HAS_TRANSLATOR:
                     try:
                         translator = GoogleTranslator(source='auto', target='th')
-                        # Cut text if too long to speed up
                         summary_th = translator.translate(summary[:4500])
                     except: pass
                 
@@ -459,82 +491,31 @@ if symbol:
                     st.write(summary_th)
             
                 st.markdown("### 📊 Fundamental Valuation")
-                
-                # Fetch Data
                 pe = info.get('trailingPE')
                 eps = info.get('trailingEps')
                 peg = info.get('pegRatio')
-                
                 col_f1, col_f2, col_f3 = st.columns(3)
-                
-                # 1. EPS Box
                 with col_f1:
                     eps_val = f"{eps:.2f}" if eps else "N/A"
                     eps_color = "#00E676" if eps and eps > 0 else "#FF1744"
-                    st.markdown(f"""
-                        <div class="fund-box" style="border-left: 5px solid {eps_color};">
-                            <div class="fund-title">EPS (กำไรต่อหุ้น)</div>
-                            <div class="fund-val">{eps_val}</div>
-                            <div class="fund-desc">Earnings Per Share</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
-                # 2. P/E Box & Interpretation
+                    st.markdown(f"""<div class="fund-box" style="border-left: 5px solid {eps_color};"><div class="fund-title">EPS (กำไรต่อหุ้น)</div><div class="fund-val">{eps_val}</div><div class="fund-desc">Earnings Per Share</div></div>""", unsafe_allow_html=True)
                 with col_f2:
                     pe_val = f"{pe:.2f}" if pe else "N/A"
-                    
-                    # Logic: ประเมิน PE เทียบกับเกณฑ์มาตรฐาน (Since free API can't fetch industry avg easily)
-                    # General Rule: <15 Cheap, 15-25 Fair, >25 Expensive (Depends on Growth)
-                    # We use PEG to refine if possible.
-                    
                     pe_status = "N/A"
                     pe_color = "#888"
-                    
                     if pe:
-                        if pe < 15:
-                            pe_status = "Undervalued (ถูก)"
-                            pe_color = "#00E676"
-                        elif pe > 30:
-                            pe_status = "Overvalued (แพง)"
-                            pe_color = "#FF1744"
-                        else:
-                            pe_status = "Fair Price (เหมาะสม)"
-                            pe_color = "#FFD600"
-                            
-                    st.markdown(f"""
-                        <div class="fund-box" style="border-left: 5px solid {pe_color};">
-                            <div class="fund-title">P/E Ratio</div>
-                            <div class="fund-val">{pe_val}</div>
-                            <div class="fund-desc" style="color:{pe_color}; font-weight:bold;">{pe_status}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                # 3. Industry Comparison / PEG
+                        if pe < 15: pe_status, pe_color = "Undervalued (ถูก)", "#00E676"
+                        elif pe > 30: pe_status, pe_color = "Overvalued (แพง)", "#FF1744"
+                        else: pe_status, pe_color = "Fair Price (เหมาะสม)", "#FFD600"
+                    st.markdown(f"""<div class="fund-box" style="border-left: 5px solid {pe_color};"><div class="fund-title">P/E Ratio</div><div class="fund-val">{pe_val}</div><div class="fund-desc" style="color:{pe_color}; font-weight:bold;">{pe_status}</div></div>""", unsafe_allow_html=True)
                 with col_f3:
-                    # PEG < 1 = Undervalued (Growth is cheap)
                     peg_val = f"{peg:.2f}" if peg else "N/A"
-                    peg_status = ""
-                    peg_color = "#888"
-                    
+                    peg_status, peg_color = "", "#888"
                     if peg:
-                        if peg < 1: 
-                            peg_status = "Growth is Cheap (น่าสนใจ)"
-                            peg_color = "#00E676"
-                        elif peg > 2:
-                            peg_status = "Growth is Pricey (ตึงตัว)"
-                            peg_color = "#FF1744"
-                        else:
-                            peg_status = "Reasonable (สมเหตุสมผล)"
-                            peg_color = "#FFD600"
-
-                    st.markdown(f"""
-                        <div class="fund-box" style="border-left: 5px solid {peg_color};">
-                            <div class="fund-title">PEG Ratio (เทียบการเติบโต)</div>
-                            <div class="fund-val">{peg_val}</div>
-                            <div class="fund-desc" style="color:{peg_color};">{peg_status}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
+                        if peg < 1: peg_status, peg_color = "Growth is Cheap (น่าสนใจ)", "#00E676"
+                        elif peg > 2: peg_status, peg_color = "Growth is Pricey (ตึงตัว)", "#FF1744"
+                        else: peg_status, peg_color = "Reasonable (สมเหตุสมผล)", "#FFD600"
+                    st.markdown(f"""<div class="fund-box" style="border-left: 5px solid {peg_color};"><div class="fund-title">PEG Ratio (เทียบการเติบโต)</div><div class="fund-val">{peg_val}</div><div class="fund-desc" style="color:{peg_color};">{peg_status}</div></div>""", unsafe_allow_html=True)
                 st.caption("*หมายเหตุ: การประเมิน P/E เทียบกับเกณฑ์มาตรฐานทั่วไป ควรพิจารณาร่วมกับ PEG Ratio (เทียบการเติบโต) และปัจจัยเฉพาะอุตสาหกรรม")
             else:
                 st.info("ไม่พบข้อมูลพื้นฐาน (Fundamental Data) สำหรับสินทรัพย์นี้ (อาจเป็น Crypto หรือ Commodity)")
@@ -544,34 +525,20 @@ if symbol:
             st.markdown("### 📰 AI Sentiment Analysis (วิเคราะห์อารมณ์ข่าว)")
             if news_list:
                 for n in news_list:
-                    st.markdown(f"""
-                    <div class="news-card {n['class']}">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:0.9rem; font-weight:bold; padding:4px 10px; border-radius:10px; background:#fff; color:#000;">{n['icon']} {n['sentiment']}</span>
-                        </div>
-                        <h4 style="color:#fff; margin:10px 0;">{n['title_th']}</h4>
-                        <a href="{n['link']}" target="_blank" style="color:#aaa; font-size:0.9rem;">🔗 อ่านข่าวต้นฉบับ</a>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"""<div class="news-card {n['class']}"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-size:0.9rem; font-weight:bold; padding:4px 10px; border-radius:10px; background:#fff; color:#000;">{n['icon']} {n['sentiment']}</span></div><h4 style="color:#fff; margin:10px 0;">{n['title_th']}</h4><a href="{n['link']}" target="_blank" style="color:#aaa; font-size:0.9rem;">🔗 อ่านข่าวต้นฉบับ</a></div>""", unsafe_allow_html=True)
             else: st.info("ไม่พบข่าวในขณะนี้ หรือ API ถูกจำกัดการเข้าถึง")
 
-        # Tab 4: S/R & Setup (BIG TABLE)
+        # Tab 4: S/R & Setup
         with tabs[3]:
-            # Big S/R Table
             st.markdown("### 🛡️ Key Levels (แนวรับ-แนวต้าน)")
             res_list = sorted([l['price'] for l in sr_levels if l['price'] > curr_price])[:3]
             sup_list = sorted([l['price'] for l in sr_levels if l['price'] < curr_price], reverse=True)[:3]
-            
             sr_html = "<div class='sr-container'>"
-            for r in reversed(res_list):
-                sr_html += f"<div class='sr-row res-row'><div>RESISTANCE</div><div>{r:,.2f}</div></div>"
+            for r in reversed(res_list): sr_html += f"<div class='sr-row res-row'><div>RESISTANCE</div><div>{r:,.2f}</div></div>"
             sr_html += f"<div class='sr-row curr-row'><div>CURRENT: {curr_price:,.2f}</div></div>"
-            for s in sup_list:
-                sr_html += f"<div class='sr-row sup-row'><div>SUPPORT</div><div>{s:,.2f}</div></div>"
+            for s in sup_list: sr_html += f"<div class='sr-row sup-row'><div>SUPPORT</div><div>{s:,.2f}</div></div>"
             sr_html += "</div>"
             st.markdown(sr_html, unsafe_allow_html=True)
-            
-            # Technical Setup Box
             st.markdown("### 🎯 Technical Signal")
             if setup:
                 st.markdown(f"""<div class="glass-card" style="text-align:center; border:2px solid {setup['color']}"><h1 style="color:{setup['color']}">{setup['signal']}</h1><p style="font-size:1.5rem;">{setup['trend']}</p></div>""", unsafe_allow_html=True)
@@ -596,32 +563,18 @@ if symbol:
         with tabs[6]:
             pivots = calculate_pivot_points(df)
             dynamic = calculate_dynamic_levels(df)
-            
             col_static, col_dynamic = st.columns(2)
-            
             with col_static:
                 st.markdown("### 🧱 Static Levels (Pivot Points)")
                 if pivots:
                     st.markdown(f"""
 <div style="display:flex; flex-direction:column; gap:8px;">
-<div style="background:#220a0a; border:1px solid #FF1744; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
-<span style="color:#FF1744; font-weight:bold;">R2 (ต้านแข็ง)</span> <span style="font-weight:bold;">{pivots['R2']:,.2f}</span>
-</div>
-<div style="background:#221111; border:1px solid #FF5252; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
-<span style="color:#FF5252; font-weight:bold;">R1 (ต้านแรก)</span> <span style="font-weight:bold;">{pivots['R1']:,.2f}</span>
-</div>
-<div style="background:#1a1a1a; border:1px solid #FFD600; padding:15px; border-radius:10px; display:flex; justify-content:space-between; transform:scale(1.02); box-shadow:0 0 10px rgba(255,214,0,0.2);">
-<span style="color:#FFD600; font-weight:bold;">PIVOT (จุดหมุน)</span> <span style="font-weight:bold;">{pivots['PP']:,.2f}</span>
-</div>
-<div style="background:#0a1a11; border:1px solid #69F0AE; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
-<span style="color:#69F0AE; font-weight:bold;">S1 (รับแรก)</span> <span style="font-weight:bold;">{pivots['S1']:,.2f}</span>
-</div>
-<div style="background:#0a2215; border:1px solid #00E676; padding:15px; border-radius:10px; display:flex; justify-content:space-between;">
-<span style="color:#00E676; font-weight:bold;">S2 (รับแข็ง)</span> <span style="font-weight:bold;">{pivots['S2']:,.2f}</span>
-</div>
-</div>
-""", unsafe_allow_html=True)
-
+<div style="background:#220a0a; border:1px solid #FF1744; padding:15px; border-radius:10px; display:flex; justify-content:space-between;"><span style="color:#FF1744; font-weight:bold;">R2 (ต้านแข็ง)</span> <span style="font-weight:bold;">{pivots['R2']:,.2f}</span></div>
+<div style="background:#221111; border:1px solid #FF5252; padding:15px; border-radius:10px; display:flex; justify-content:space-between;"><span style="color:#FF5252; font-weight:bold;">R1 (ต้านแรก)</span> <span style="font-weight:bold;">{pivots['R1']:,.2f}</span></div>
+<div style="background:#1a1a1a; border:1px solid #FFD600; padding:15px; border-radius:10px; display:flex; justify-content:space-between; transform:scale(1.02); box-shadow:0 0 10px rgba(255,214,0,0.2);"><span style="color:#FFD600; font-weight:bold;">PIVOT (จุดหมุน)</span> <span style="font-weight:bold;">{pivots['PP']:,.2f}</span></div>
+<div style="background:#0a1a11; border:1px solid #69F0AE; padding:15px; border-radius:10px; display:flex; justify-content:space-between;"><span style="color:#69F0AE; font-weight:bold;">S1 (รับแรก)</span> <span style="font-weight:bold;">{pivots['S1']:,.2f}</span></div>
+<div style="background:#0a2215; border:1px solid #00E676; padding:15px; border-radius:10px; display:flex; justify-content:space-between;"><span style="color:#00E676; font-weight:bold;">S2 (รับแข็ง)</span> <span style="font-weight:bold;">{pivots['S2']:,.2f}</span></div>
+</div>""", unsafe_allow_html=True)
             with col_dynamic:
                 st.markdown("### 🌊 Dynamic Levels (Moving Avgs)")
                 if dynamic:
@@ -630,20 +583,73 @@ if symbol:
                         diff = ((price - level) / level) * 100
                         if price > level: return "SUPPORT (รับ)", "#00E676", f"+{diff:.2f}%"
                         else: return "RESIST (ต้าน)", "#FF1744", f"{diff:.2f}%"
-
-                    dyn_items = [
-                        ("BB Upper", dynamic['BB Upper']),
-                        ("EMA 20", dynamic['EMA 20']),
-                        ("EMA 50", dynamic['EMA 50']),
-                        ("EMA 200", dynamic['EMA 200']),
-                        ("BB Lower", dynamic['BB Lower'])
-                    ]
+                    dyn_items = [("BB Upper", dynamic['BB Upper']), ("EMA 20", dynamic['EMA 20']), ("EMA 50", dynamic['EMA 50']), ("EMA 200", dynamic['EMA 200']), ("BB Lower", dynamic['BB Lower'])]
                     dyn_items.sort(key=lambda x: x[1], reverse=True)
-                    
                     html_dyn = "<div style='display:flex; flex-direction:column; gap:10px;'>"
                     for name, val in dyn_items:
                         role, color, pct = get_status(curr, val)
-                        bg_color = f"{color}10"
-                        html_dyn += f"<div style='background:{bg_color}; border-left:5px solid {color}; padding:15px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;'><div><div style='font-size:0.8rem; color:#888;'>{name}</div><div style='font-size:1.2rem; font-weight:bold;'>{val:,.2f}</div></div><div style='text-align:right;'><div style='font-size:0.9rem; font-weight:bold; color:{color};'>{role}</div><div style='font-size:0.8rem; color:#ccc;'>Dist: {pct}</div></div></div>"
+                        html_dyn += f"<div style='background:{color}10; border-left:5px solid {color}; padding:15px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;'><div><div style='font-size:0.8rem; color:#888;'>{name}</div><div style='font-size:1.2rem; font-weight:bold;'>{val:,.2f}</div></div><div style='text-align:right;'><div style='font-size:0.9rem; font-weight:bold; color:{color};'>{role}</div><div style='font-size:0.8rem; color:#ccc;'>Dist: {pct}</div></div></div>"
                     html_dyn += "</div>"
                     st.markdown(html_dyn, unsafe_allow_html=True)
+
+        # Tab 8: Bitkub AI S/R (NEW)
+        with tabs[7]:
+            st.markdown("### 🇹🇭 Bitkub AI Support & Resistance (บาท)")
+            bk_coin_sel = st.radio("เลือกเหรียญ (THB Pair)", ["BTC", "ETH"], horizontal=True)
+            
+            if bk_data:
+                pair = f"THB_{bk_coin_sel}"
+                coin_data = bk_data.get(pair, {})
+                
+                if coin_data:
+                    last_thb = coin_data.get('last', 0)
+                    high_24 = coin_data.get('high24hr', 0)
+                    low_24 = coin_data.get('low24hr', 0)
+                    
+                    # AI Calculation
+                    ai_levels = calculate_bitkub_ai_levels(high_24, low_24, last_thb)
+                    
+                    # Display Big Price
+                    st.markdown(f"""
+                    <div style="text-align:center; padding:20px; background:#111; border-radius:20px; border:2px solid {ai_levels['color']}; margin-bottom:20px;">
+                        <div style="font-size:1.2rem; color:#aaa;">ราคา Bitkub ล่าสุด</div>
+                        <div style="font-size:3.5rem; font-weight:bold; color:#fff;">{last_thb:,.2f} <span style="font-size:1.5rem;">THB</span></div>
+                        <div style="font-size:1.5rem; font-weight:bold; color:{ai_levels['color']};">{ai_levels['status']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    c_ai_1, c_ai_2 = st.columns(2)
+                    
+                    with c_ai_1:
+                        st.markdown("#### 🤖 AI Pivot Levels (Intraday)")
+                        html_lvls = "<div style='display:flex; flex-direction:column; gap:8px;'>"
+                        for lvl in ai_levels['levels']:
+                            color = "#00E676" if lvl['type'] == 'sup' else "#FF1744" if lvl['type'] == 'res' else "#FFD600"
+                            html_lvls += f"""
+                            <div style="display:flex; justify-content:space-between; padding:15px; background:#161616; border-left:5px solid {color}; border-radius:5px;">
+                                <span style="font-weight:bold; color:{color};">{lvl['name']}</span>
+                                <span style="font-weight:bold; font-size:1.1rem;">{lvl['price']:,.2f}</span>
+                            </div>
+                            """
+                        html_lvls += "</div>"
+                        st.markdown(html_lvls, unsafe_allow_html=True)
+                        
+                    with c_ai_2:
+                        st.markdown("#### 📐 Fibonacci Golden Zone (24H)")
+                        st.info(f"""
+                        **กรอบทองคำ (Golden Zone):**
+                        \nโซนกลับตัวที่มีนัยยะสำคัญจาก High/Low ใน 24 ชม.
+                        \n\n🟢 **Golden Bottom (รับ):** {ai_levels['fib']['bot']:,.2f}
+                        \n🔴 **Golden Top (ต้าน):** {ai_levels['fib']['top']:,.2f}
+                        """)
+                        
+                        st.markdown("#### 🧠 AI Insight")
+                        st.caption(f"""
+                        ระบบวิเคราะห์จากพฤติกรรมราคาใน 24 ชั่วโมงล่าสุดของ Bitkub พบว่าราคาปัจจุบันอยู่ที่ **{last_thb:,.2f}** 
+                        ซึ่งอยู่ในโซน **{ai_levels['status']}** เมื่อเทียบกับจุดกึ่งกลางวัน
+                        \nแนะนำให้จับตาดูแนวรับ **S1 ({ai_levels['levels'][3]['price']:,.0f})** หากรับอยู่มีโอกาสเด้งไปทดสอบ Pivot
+                        """)
+                else:
+                    st.error("ไม่พบข้อมูลเหรียญนี้ใน Bitkub API")
+            else:
+                st.warning("กำลังเชื่อมต่อ Bitkub API...")
