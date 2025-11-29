@@ -37,40 +37,32 @@ if 'symbol' not in st.session_state: st.session_state.symbol = 'BTC-USD'
 
 def set_symbol(sym): st.session_state.symbol = sym
 
-# --- 2. CSS Styling (Ultra Modern UI) ---
+# --- 2. CSS Styling ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap');
         html, body, [class*="css"] { font-family: 'Kanit', sans-serif; }
-        
         .stApp { background-color: #050505 !important; color: #e0e0e0; }
         
-        /* Input Field */
         div[data-testid="stTextInput"] input { 
             background-color: #111 !important; color: #fff !important; 
             font-weight: bold !important; font-size: 1.2rem !important;
             border: 2px solid #00E5FF !important; border-radius: 10px;
         }
-
-        /* Cards */
         .glass-card {
             background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
             border: 1px solid #333; border-radius: 20px;
             padding: 25px; margin-bottom: 20px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
         }
-        
-        /* Stat Metric Box */
         .metric-box {
             background: #111; border-radius: 15px; padding: 20px;
-            border-left: 4px solid #333; position: relative; overflow: hidden;
-            transition: transform 0.2s;
+            border-left: 4px solid #333; transition: transform 0.2s;
         }
         .metric-box:hover { transform: translateY(-5px); border-left-color: #00E5FF; }
-        .metric-label { font-size: 0.9rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .metric-label { font-size: 0.9rem; color: #888; text-transform: uppercase; }
         .metric-val { font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 5px; }
         
-        /* S/R Dynamic Cards */
         .sr-card {
             padding: 15px 20px; border-radius: 12px; margin-bottom: 10px;
             display: flex; justify-content: space-between; align-items: center;
@@ -80,7 +72,6 @@ st.markdown("""
         .sr-sup { background: linear-gradient(90deg, rgba(0, 230, 118, 0.2), rgba(0,0,0,0)); border-left: 5px solid #00E676; }
         .sr-piv { background: linear-gradient(90deg, rgba(255, 214, 0, 0.2), rgba(0,0,0,0)); border-left: 5px solid #FFD600; }
         
-        /* AI Verdict Ring */
         .verdict-ring {
             width: 140px; height: 140px; border-radius: 50%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -89,7 +80,6 @@ st.markdown("""
             box-shadow: 0 0 40px rgba(0,0,0,0.5);
         }
         
-        /* AI Insight Box */
         .ai-insight-box {
             background: linear-gradient(135deg, #111, #0a0a0a);
             border: 1px solid #333; border-radius: 15px; padding: 25px;
@@ -97,53 +87,22 @@ st.markdown("""
         }
         .ai-insight-icon { font-size: 2rem; margin-bottom: 10px; }
         
-        /* NEWS CARD */
         .news-card { 
             padding: 20px; margin-bottom: 15px; background: #111; 
             border-radius: 15px; border-left: 5px solid #888; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            transition: transform 0.2s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.2s;
         }
         .news-card:hover { transform: translateX(5px); background: #161616; }
-        .nc-pos { border-left-color: #00E676; }
-        .nc-neg { border-left-color: #FF1744; }
-        .nc-neu { border-left-color: #FFD600; }
+        .nc-pos { border-left-color: #00E676; } .nc-neg { border-left-color: #FF1744; } .nc-neu { border-left-color: #FFD600; }
         
-        /* GURU CARD */
-        .guru-card {
-            background: #111; padding: 15px; border-radius: 12px; 
-            border: 1px solid #333; margin-bottom: 10px; font-size: 0.95rem;
-        }
-        
-        .ai-article {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 20px; border-radius: 15px;
-            border-left: 4px solid #00E5FF;
-            font-size: 1rem; line-height: 1.8; color: #ddd;
-            margin-top: 20px;
-        }
+        .guru-card { background: #111; padding: 15px; border-radius: 12px; border: 1px solid #333; margin-bottom: 10px; font-size: 0.95rem; }
+        .ai-article { background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 15px; border-left: 4px solid #00E5FF; font-size: 1rem; line-height: 1.8; color: #ddd; margin-top: 20px; }
 
-        /* Custom Tabs */
-        button[data-baseweb="tab"] { 
-            font-size: 1rem !important; font-weight: 600 !important; 
-            border-radius: 8px !important; margin: 0 4px !important;
-            background: #111 !important; border: 1px solid #333 !important;
-        }
-        button[data-baseweb="tab"][aria-selected="true"] {
-            background: #00E5FF !important; color: #000 !important; border-color: #00E5FF !important;
-        }
+        button[data-baseweb="tab"] { font-size: 1rem !important; font-weight: 600 !important; border-radius: 8px !important; margin: 0 4px !important; background: #111 !important; border: 1px solid #333 !important; }
+        button[data-baseweb="tab"][aria-selected="true"] { background: #00E5FF !important; color: #000 !important; border-color: #00E5FF !important; }
         
-        /* Centered Button */
-        div.stButton > button {
-            width: 100%; justify-content: center; font-size: 1.1rem !important; 
-            padding: 12px !important; border-radius: 12px !important;
-            background: linear-gradient(45deg, #00E5FF, #2979FF); 
-            border: none !important; color: #000 !important; font-weight: 800 !important;
-            box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
-        }
-        div.stButton > button:hover {
-            transform: scale(1.02); box-shadow: 0 0 25px rgba(0, 229, 255, 0.6);
-        }
+        div.stButton > button { width: 100%; justify-content: center; font-size: 1.1rem !important; padding: 12px !important; border-radius: 12px !important; background: linear-gradient(45deg, #00E5FF, #2979FF); border: none !important; color: #000 !important; font-weight: 800 !important; box-shadow: 0 0 15px rgba(0, 229, 255, 0.4); }
+        div.stButton > button:hover { transform: scale(1.02); box-shadow: 0 0 25px rgba(0, 229, 255, 0.6); }
     </style>
 """, unsafe_allow_html=True)
 
@@ -159,9 +118,8 @@ def get_stock_info(symbol):
     try: return yf.Ticker(symbol).info
     except: return None
 
-# --- AI Guru Analysis Logic ---
+# --- NEW: AI Guru Analysis Logic ---
 def analyze_stock_guru(info, setup, symbol):
-    # 1. Get Data
     pe = info.get('trailingPE')
     peg = info.get('pegRatio')
     pb = info.get('priceToBook')
@@ -170,111 +128,60 @@ def analyze_stock_guru(info, setup, symbol):
     rev_growth = info.get('revenueGrowth', 0)
     sector = info.get('sector', 'General')
     
-    # 2. Valuation Score (Max 10)
     val_score = 0
     reasons_q = []
     reasons_v = []
 
-    if roe and roe > 0.15: 
-        reasons_q.append("✅ ROE สูง (>15%) บริหารทุนเก่ง")
-    elif roe and roe < 0:
-        reasons_q.append("❌ ROE ติดลบ ขาดทุน")
-        
-    if profit_margin and profit_margin > 0.10: 
-        reasons_q.append("✅ อัตรากำไรดี (>10%)")
+    if roe and roe > 0.15: reasons_q.append("✅ ROE สูง (>15%) บริหารทุนเก่ง")
+    elif roe and roe < 0: reasons_q.append("❌ ROE ติดลบ ขาดทุน")
+    if profit_margin and profit_margin > 0.10: reasons_q.append("✅ อัตรากำไรดี (>10%)")
+    if rev_growth and rev_growth > 0: reasons_q.append("✅ รายได้เติบโต")
+    else: reasons_q.append("⚠️ รายได้ไม่โต หรือหดตัว")
     
-    if rev_growth and rev_growth > 0: 
-        reasons_q.append("✅ รายได้เติบโต")
-    else:
-        reasons_q.append("⚠️ รายได้ไม่โต หรือหดตัว")
-    
-    # PE Logic
     if pe:
-        if pe < 15: 
-            val_score += 3 
-            reasons_v.append("✅ P/E ต่ำ (ถูก)")
-        elif pe < 25: 
-            val_score += 2 
-            reasons_v.append("⚖️ P/E เหมาะสม")
-        elif pe < 40: 
-            val_score += 1 
-            reasons_v.append("⚠️ P/E เริ่มสูง")
+        if pe < 15: val_score += 3; reasons_v.append("✅ P/E ต่ำ (ถูก)")
+        elif pe < 25: val_score += 2; reasons_v.append("⚖️ P/E เหมาะสม")
+        elif pe < 40: val_score += 1; reasons_v.append("⚠️ P/E เริ่มสูง")
     else: val_score += 1
     
-    # PEG Logic (Growth)
     if peg:
-        if peg < 1.0: 
-            val_score += 3 
-            reasons_v.append("✅ PEG < 1 (โตคุ้มราคา)")
-        elif peg < 2.0: 
-            val_score += 2 
-            reasons_v.append("⚖️ PEG ปกติ")
-        else: 
-            val_score += 0
-            reasons_v.append("❌ PEG สูง (โตไม่ทันราคา)")
+        if peg < 1.0: val_score += 3; reasons_v.append("✅ PEG < 1 (โตคุ้มราคา)")
+        elif peg < 2.0: val_score += 2; reasons_v.append("⚖️ PEG ปกติ")
+        else: val_score += 0; reasons_v.append("❌ PEG สูง (โตไม่ทันราคา)")
     
-    # PB Logic
     if pb and pb < 3: val_score += 2
-    
-    # ROE Bonus
     if roe and roe > 0.15: val_score += 2
 
     val_score = min(10, val_score)
 
-    # 3. Verdict Text Generation
     intro = f"จากการวิเคราะห์หุ้น **{symbol}** ในกลุ่มอุตสาหกรรม **{sector}** ด้วยระบบ AI Guru พบข้อมูลที่น่าสนใจดังนี้:\n\n"
-    
+    val_text = ""
     if pe:
         if pe < 15: val_text = f"ในมุมมองความคุ้มค่า (Valuation) หุ้นตัวนี้ถือว่า **'ราคาถูก (Undervalued)'** เมื่อเทียบกับกำไรที่ทำได้ โดยมีค่า P/E อยู่ที่ {pe:.2f} ซึ่งต่ำกว่าเกณฑ์มาตรฐาน "
         elif pe > 40: val_text = f"ในมุมมองความคุ้มค่า ราคาหุ้นปัจจุบันค่อนข้าง **'แพง (Overvalued)'** มีค่า P/E สูงถึง {pe:.2f} สะท้อนความคาดหวังของนักลงทุนที่สูงมาก "
         else: val_text = f"ราคาหุ้นปัจจุบันถือว่า **'สมเหตุสมผล (Fair Price)'** มีค่า P/E อยู่ที่ {pe:.2f} เป็นระดับที่ยอมรับได้ "
     else: val_text = "ไม่สามารถประเมินค่า P/E ได้ชัดเจน (อาจขาดทุนหรือเป็นกองทุน) "
 
-    if peg:
-        if peg < 1: val_text += f"และเมื่อเทียบกับการเติบโต (Growth) ถือว่าคุ้มค่ามาก (PEG {peg:.2f}) แปลว่ากำไรบริษัทโตเร็วกว่าราคาหุ้น "
-        elif peg > 2: val_text += f"แต่เมื่อดูการเติบโตเทียบราคา (PEG {peg:.2f}) ถือว่าราคาขึ้นไปรอกำไรในอนาคตแล้ว (Growth Priced In) "
-    
     qual_text = ""
     if roe and roe > 0.15: qual_text = f"\n\nด้านคุณภาพบริษัท (Quality) จัดว่ายอดเยี่ยม มี ROE สูงถึง {roe*100:.1f}% แสดงถึงความสามารถในการบริหารเงินทุนของผู้บริหารที่เก่งกาจ "
-    elif profit_margin and profit_margin < 0.05: qual_text = f"\n\nด้านคุณภาพอาจต้องระวังเรื่องอัตรากำไรที่ค่อนข้างบาง ({profit_margin*100:.1f}%) ซึ่งอาจเปราะบางต่อเศรษฐกิจ "
-
+    
     tech_text = f"\n\n**คำแนะนำเชิงกลยุทธ์:** เมื่อประกอบกับกราฟเทคนิคที่เป็น **{setup['trend']}** "
     if setup['trend'] == "UPTREND (ขาขึ้น)":
-        if val_score >= 7: 
-            tech_text += "และพื้นฐานที่แข็งแกร่ง **'แนะนำให้ทยอยสะสม (Buy)'** ได้ทันที เพราะทั้งพื้นฐานและเทคนิคสนับสนุนกัน ราคาเป้าหมายยังมี Upside"
-        else:
-            tech_text += "แม้เทคนิคจะดูดี แต่พื้นฐานเริ่มตึงตัว **'แนะนำให้เก็งกำไรระยะสั้น (Trading)'** และวางจุด Stop Loss อย่างเคร่งครัด ไม่ควรถือยาว"
-    elif setup['trend'] == "DOWNTREND (ขาลง)":
-        if val_score >= 8:
-            tech_text += "แม้พื้นฐานจะดีและราคาถูกมาก แต่กราฟยังเป็นขาลง **'แนะนำให้ Wait & See'** รอให้กราฟสร้างฐานหรือยืนเหนือเส้น EMA ก่อนค่อยเข้าซื้อ จะได้ของดีในราคาที่ปลอดภัยกว่า"
-        else:
-            tech_text += "ประกอบกับพื้นฐานที่อ่อนแอ/แพง **'แนะนำให้หลีกเลี่ยง (Avoid)'** ไปก่อน จนกว่าจะมีสัญญาณการกลับตัวที่ชัดเจน"
+        if val_score >= 7: tech_text += "และพื้นฐานที่แข็งแกร่ง **'แนะนำให้ทยอยสะสม (Buy)'** ได้ทันที เพราะทั้งพื้นฐานและเทคนิคสนับสนุนกัน ราคาเป้าหมายยังมี Upside"
+        else: tech_text += "แม้เทคนิคจะดูดี แต่พื้นฐานเริ่มตึงตัว **'แนะนำให้เก็งกำไรระยะสั้น (Trading)'** และวางจุด Stop Loss อย่างเคร่งครัด ไม่ควรถือยาว"
     else:
         tech_text += "ควรรอให้ราคาเลือกทางที่ชัดเจนก่อนเข้าลงทุน (Wait for Breakout)"
 
     full_article = intro + val_text + qual_text + tech_text
 
-    # 4. Determine Status
     if val_score >= 8: status, color = "💎 Hidden Gem (ของดีราคาถูก)", "#00E676"
     elif val_score >= 5: status, color = "⚖️ Fair Value (เหมาะสม)", "#FFD600"
     else: status, color = "⚠️ High Risk / Expensive", "#FF1744"
 
-    return {
-        "verdict": status,
-        "color": color,
-        "val_score": val_score,
-        "article": full_article,
-        "reasons_q": reasons_q,
-        "reasons_v": reasons_v
-    }
+    return {"verdict": status, "color": color, "val_score": val_score, "article": full_article, "reasons_q": reasons_q, "reasons_v": reasons_v}
 
 def get_sector_pe_benchmark(sector):
-    benchmarks = {
-        'Technology': 25, 'Financial Services': 15, 'Healthcare': 22,
-        'Consumer Cyclical': 20, 'Industrials': 20, 'Energy': 12,
-        'Utilities': 18, 'Real Estate': 35, 'Basic Materials': 15,
-        'Communication Services': 20
-    }
+    benchmarks = {'Technology': 25, 'Financial Services': 15, 'Healthcare': 22, 'Consumer Cyclical': 20, 'Industrials': 20, 'Energy': 12}
     return benchmarks.get(sector, 20) 
 
 @st.cache_data(ttl=15)
@@ -660,22 +567,21 @@ if symbol:
                             cl = "#00E676" if curr > v else "#FF1744"
                             st.markdown(f"<div class='sr-card' style='border-left:4px solid {cl}; background:rgba({255 if cl=='#FF1744' else 0}, {230 if cl=='#00E676' else 23}, {118 if cl=='#00E676' else 68}, 0.1);'><span>{k}</span><div style='text-align:right;'>{v:,.2f}<br><small style='color:{cl}'>{dist:+.2f}%</small></div></div>", unsafe_allow_html=True)
 
-        # 7. AI Guru (New)
+        # 7. AI Guru (Final Fixed)
         with tabs[6]:
             st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
             if info:
                 guru = analyze_stock_guru(info, setup, symbol)
+                
+                # Use Proper Streamlit HTML injection (No broken f-strings)
                 st.markdown(f"""
                 <div class='ai-insight-box' style='border:2px solid {guru['color']}; text-align:center; margin-bottom:20px;'>
                     <h1 style='color:{guru['color']}; font-size:3rem; margin:0;'>{guru['verdict']}</h1>
-                    
-                    <!-- NEW: Valuation Score Bar -->
                     <div style="margin:20px 0; background:#333; border-radius:10px; height:10px; width:100%;">
                         <div style="width:{guru['val_score']*10}%; background:{guru['color']}; height:100%; border-radius:10px;"></div>
                     </div>
                     <p style='font-size:1.1rem; color:#ccc;'>Valuation Score: {guru['val_score']}/10</p>
                 </div>
-                
                 <div class='ai-article'>
                     <h4 style='margin-top:0; color:#fff;'>📝 บทวิเคราะห์โดย AI (AI Analyst Report)</h4>
                     {guru['article']}
