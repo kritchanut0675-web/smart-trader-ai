@@ -138,26 +138,15 @@ def get_bitkub_ticker():
 
 # --- NEW: AI Calculation for THB ---
 def calculate_bitkub_ai_levels(high24, low24, last_price):
-    # Algorithm: Hybrid 24H Pivot + Fibonacci + Round Numbers
-    
-    # 1. 24H Pivot Point (Intraday Weight)
     pp = (high24 + low24 + last_price) / 3
-    
-    # 2. Volatility Range
     rng = high24 - low24
-    
-    # 3. Calculate Levels
     r1 = (2 * pp) - low24
     s1 = (2 * pp) - high24
-    
     r2 = pp + rng
     s2 = pp - rng
-    
-    # 4. Fibonacci Golden Pocket (24H Swing)
     fib_high = low24 + (rng * 0.618)
     fib_low = low24 + (rng * 0.382)
     
-    # 5. AI Verdict based on Position
     mid_point = (high24 + low24) / 2
     if last_price > mid_point:
         status = "BULLISH (กระทิง)"
@@ -381,21 +370,21 @@ with st.sidebar:
         c_eth = "#00E676" if eth_chg >= 0 else "#FF1744"
 
         st.markdown(f"""
-        <div style="background:#111; padding:10px; border-radius:10px; margin-bottom:5px;">
-            <div style="display:flex; justify-content:space-between;">
-                <span style="font-size:0.9rem; color:#aaa;">BTC/THB</span>
-                <span style="color:{c_btc}; font-size:0.8rem;">{btc_chg:+.2f}%</span>
-            </div>
-            <div style="font-size:1.2rem; font-weight:bold; color:{c_btc};">{btc_thb:,.2f}</div>
-        </div>
-        <div style="background:#111; padding:10px; border-radius:10px;">
-            <div style="display:flex; justify-content:space-between;">
-                <span style="font-size:0.9rem; color:#aaa;">ETH/THB</span>
-                <span style="color:{c_eth}; font-size:0.8rem;">{eth_chg:+.2f}%</span>
-            </div>
-            <div style="font-size:1.2rem; font-weight:bold; color:{c_eth};">{eth_thb:,.2f}</div>
-        </div>
-        """, unsafe_allow_html=True)
+<div style="background:#111; padding:10px; border-radius:10px; margin-bottom:5px;">
+<div style="display:flex; justify-content:space-between;">
+<span style="font-size:0.9rem; color:#aaa;">BTC/THB</span>
+<span style="color:{c_btc}; font-size:0.8rem;">{btc_chg:+.2f}%</span>
+</div>
+<div style="font-size:1.2rem; font-weight:bold; color:{c_btc};">{btc_thb:,.2f}</div>
+</div>
+<div style="background:#111; padding:10px; border-radius:10px;">
+<div style="display:flex; justify-content:space-between;">
+<span style="font-size:0.9rem; color:#aaa;">ETH/THB</span>
+<span style="color:{c_eth}; font-size:0.8rem;">{eth_chg:+.2f}%</span>
+</div>
+<div style="font-size:1.2rem; font-weight:bold; color:{c_eth};">{eth_thb:,.2f}</div>
+</div>
+""", unsafe_allow_html=True)
     else:
         st.caption("กำลังโหลดข้อมูล Bitkub...")
         
@@ -449,7 +438,7 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
 
-        # --- TABS (Updated with Tab 8) ---
+        # --- TABS ---
         tabs = st.tabs(["📈 Chart", "📊 Stats & Funda", "📰 AI News", "🎯 S/R & Setup", "💰 Entry", "🤖 AI Verdict", "🛡️ S/R Dynamics", "🇹🇭 Bitkub AI S/R"])
 
         # Tab 1: Chart
@@ -567,6 +556,7 @@ if symbol:
             with col_static:
                 st.markdown("### 🧱 Static Levels (Pivot Points)")
                 if pivots:
+                    # Fix indentation for HTML string
                     st.markdown(f"""
 <div style="display:flex; flex-direction:column; gap:8px;">
 <div style="background:#220a0a; border:1px solid #FF1744; padding:15px; border-radius:10px; display:flex; justify-content:space-between;"><span style="color:#FF1744; font-weight:bold;">R2 (ต้านแข็ง)</span> <span style="font-weight:bold;">{pivots['R2']:,.2f}</span></div>
@@ -588,6 +578,7 @@ if symbol:
                     html_dyn = "<div style='display:flex; flex-direction:column; gap:10px;'>"
                     for name, val in dyn_items:
                         role, color, pct = get_status(curr, val)
+                        # Fix single line f-string
                         html_dyn += f"<div style='background:{color}10; border-left:5px solid {color}; padding:15px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;'><div><div style='font-size:0.8rem; color:#888;'>{name}</div><div style='font-size:1.2rem; font-weight:bold;'>{val:,.2f}</div></div><div style='text-align:right;'><div style='font-size:0.9rem; font-weight:bold; color:{color};'>{role}</div><div style='font-size:0.8rem; color:#ccc;'>Dist: {pct}</div></div></div>"
                     html_dyn += "</div>"
                     st.markdown(html_dyn, unsafe_allow_html=True)
@@ -611,12 +602,11 @@ if symbol:
                     
                     # Display Big Price
                     st.markdown(f"""
-                    <div style="text-align:center; padding:20px; background:#111; border-radius:20px; border:2px solid {ai_levels['color']}; margin-bottom:20px;">
-                        <div style="font-size:1.2rem; color:#aaa;">ราคา Bitkub ล่าสุด</div>
-                        <div style="font-size:3.5rem; font-weight:bold; color:#fff;">{last_thb:,.2f} <span style="font-size:1.5rem;">THB</span></div>
-                        <div style="font-size:1.5rem; font-weight:bold; color:{ai_levels['color']};">{ai_levels['status']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+<div style="text-align:center; padding:20px; background:#111; border-radius:20px; border:2px solid {ai_levels['color']}; margin-bottom:20px;">
+<div style="font-size:1.2rem; color:#aaa;">ราคา Bitkub ล่าสุด</div>
+<div style="font-size:3.5rem; font-weight:bold; color:#fff;">{last_thb:,.2f} <span style="font-size:1.5rem;">THB</span></div>
+<div style="font-size:1.5rem; font-weight:bold; color:{ai_levels['color']};">{ai_levels['status']}</div>
+</div>""", unsafe_allow_html=True)
                     
                     c_ai_1, c_ai_2 = st.columns(2)
                     
@@ -625,12 +615,8 @@ if symbol:
                         html_lvls = "<div style='display:flex; flex-direction:column; gap:8px;'>"
                         for lvl in ai_levels['levels']:
                             color = "#00E676" if lvl['type'] == 'sup' else "#FF1744" if lvl['type'] == 'res' else "#FFD600"
-                            html_lvls += f"""
-                            <div style="display:flex; justify-content:space-between; padding:15px; background:#161616; border-left:5px solid {color}; border-radius:5px;">
-                                <span style="font-weight:bold; color:{color};">{lvl['name']}</span>
-                                <span style="font-weight:bold; font-size:1.1rem;">{lvl['price']:,.2f}</span>
-                            </div>
-                            """
+                            # Fix indented f-string to prevent code block rendering
+                            html_lvls += f"""<div style="display:flex; justify-content:space-between; padding:15px; background:#161616; border-left:5px solid {color}; border-radius:5px;"><span style="font-weight:bold; color:{color};">{lvl['name']}</span><span style="font-weight:bold; font-size:1.1rem;">{lvl['price']:,.2f}</span></div>"""
                         html_lvls += "</div>"
                         st.markdown(html_lvls, unsafe_allow_html=True)
                         
