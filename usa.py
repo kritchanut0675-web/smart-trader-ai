@@ -37,32 +37,40 @@ if 'symbol' not in st.session_state: st.session_state.symbol = 'BTC-USD'
 
 def set_symbol(sym): st.session_state.symbol = sym
 
-# --- 2. CSS Styling ---
+# --- 2. CSS Styling (Ultra Modern UI) ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap');
         html, body, [class*="css"] { font-family: 'Kanit', sans-serif; }
+        
         .stApp { background-color: #050505 !important; color: #e0e0e0; }
         
+        /* Input Field */
         div[data-testid="stTextInput"] input { 
             background-color: #111 !important; color: #fff !important; 
             font-weight: bold !important; font-size: 1.2rem !important;
             border: 2px solid #00E5FF !important; border-radius: 10px;
         }
+
+        /* Cards */
         .glass-card {
             background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
             border: 1px solid #333; border-radius: 20px;
             padding: 25px; margin-bottom: 20px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
         }
+        
+        /* Stat Metric Box */
         .metric-box {
             background: #111; border-radius: 15px; padding: 20px;
-            border-left: 4px solid #333; transition: transform 0.2s;
+            border-left: 4px solid #333; position: relative; overflow: hidden;
+            transition: transform 0.2s;
         }
         .metric-box:hover { transform: translateY(-5px); border-left-color: #00E5FF; }
-        .metric-label { font-size: 0.9rem; color: #888; text-transform: uppercase; }
+        .metric-label { font-size: 0.9rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
         .metric-val { font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 5px; }
         
+        /* S/R Dynamic Cards */
         .sr-card {
             padding: 15px 20px; border-radius: 12px; margin-bottom: 10px;
             display: flex; justify-content: space-between; align-items: center;
@@ -72,6 +80,7 @@ st.markdown("""
         .sr-sup { background: linear-gradient(90deg, rgba(0, 230, 118, 0.2), rgba(0,0,0,0)); border-left: 5px solid #00E676; }
         .sr-piv { background: linear-gradient(90deg, rgba(255, 214, 0, 0.2), rgba(0,0,0,0)); border-left: 5px solid #FFD600; }
         
+        /* AI Verdict Ring */
         .verdict-ring {
             width: 140px; height: 140px; border-radius: 50%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -80,6 +89,7 @@ st.markdown("""
             box-shadow: 0 0 40px rgba(0,0,0,0.5);
         }
         
+        /* AI Insight Box */
         .ai-insight-box {
             background: linear-gradient(135deg, #111, #0a0a0a);
             border: 1px solid #333; border-radius: 15px; padding: 25px;
@@ -87,22 +97,53 @@ st.markdown("""
         }
         .ai-insight-icon { font-size: 2rem; margin-bottom: 10px; }
         
+        /* NEWS CARD */
         .news-card { 
             padding: 20px; margin-bottom: 15px; background: #111; 
             border-radius: 15px; border-left: 5px solid #888; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.2s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
         }
         .news-card:hover { transform: translateX(5px); background: #161616; }
-        .nc-pos { border-left-color: #00E676; } .nc-neg { border-left-color: #FF1744; } .nc-neu { border-left-color: #FFD600; }
+        .nc-pos { border-left-color: #00E676; }
+        .nc-neg { border-left-color: #FF1744; }
+        .nc-neu { border-left-color: #FFD600; }
         
-        .guru-card { background: #111; padding: 15px; border-radius: 12px; border: 1px solid #333; margin-bottom: 10px; font-size: 0.95rem; }
-        .ai-article { background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 15px; border-left: 4px solid #00E5FF; font-size: 1rem; line-height: 1.8; color: #ddd; margin-top: 20px; }
+        /* GURU CARD */
+        .guru-card {
+            background: #111; padding: 15px; border-radius: 12px; 
+            border: 1px solid #333; margin-bottom: 10px; font-size: 0.95rem;
+        }
+        
+        .ai-article {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px; border-radius: 15px;
+            border-left: 4px solid #00E5FF;
+            font-size: 1rem; line-height: 1.8; color: #ddd;
+            margin-top: 20px;
+        }
 
-        button[data-baseweb="tab"] { font-size: 1rem !important; font-weight: 600 !important; border-radius: 8px !important; margin: 0 4px !important; background: #111 !important; border: 1px solid #333 !important; }
-        button[data-baseweb="tab"][aria-selected="true"] { background: #00E5FF !important; color: #000 !important; border-color: #00E5FF !important; }
+        /* Custom Tabs */
+        button[data-baseweb="tab"] { 
+            font-size: 1rem !important; font-weight: 600 !important; 
+            border-radius: 8px !important; margin: 0 4px !important;
+            background: #111 !important; border: 1px solid #333 !important;
+        }
+        button[data-baseweb="tab"][aria-selected="true"] {
+            background: #00E5FF !important; color: #000 !important; border-color: #00E5FF !important;
+        }
         
-        div.stButton > button { width: 100%; justify-content: center; font-size: 1.1rem !important; padding: 12px !important; border-radius: 12px !important; background: linear-gradient(45deg, #00E5FF, #2979FF); border: none !important; color: #000 !important; font-weight: 800 !important; box-shadow: 0 0 15px rgba(0, 229, 255, 0.4); }
-        div.stButton > button:hover { transform: scale(1.02); box-shadow: 0 0 25px rgba(0, 229, 255, 0.6); }
+        /* Centered Button */
+        div.stButton > button {
+            width: 100%; justify-content: center; font-size: 1.1rem !important; 
+            padding: 12px !important; border-radius: 12px !important;
+            background: linear-gradient(45deg, #00E5FF, #2979FF); 
+            border: none !important; color: #000 !important; font-weight: 800 !important;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+        }
+        div.stButton > button:hover {
+            transform: scale(1.02); box-shadow: 0 0 25px rgba(0, 229, 255, 0.6);
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -118,7 +159,7 @@ def get_stock_info(symbol):
     try: return yf.Ticker(symbol).info
     except: return None
 
-# --- NEW: AI Guru Analysis Logic ---
+# --- AI Guru Analysis Logic ---
 def analyze_stock_guru(info, setup, symbol):
     pe = info.get('trailingPE')
     peg = info.get('pegRatio')
@@ -567,13 +608,11 @@ if symbol:
                             cl = "#00E676" if curr > v else "#FF1744"
                             st.markdown(f"<div class='sr-card' style='border-left:4px solid {cl}; background:rgba({255 if cl=='#FF1744' else 0}, {230 if cl=='#00E676' else 23}, {118 if cl=='#00E676' else 68}, 0.1);'><span>{k}</span><div style='text-align:right;'>{v:,.2f}<br><small style='color:{cl}'>{dist:+.2f}%</small></div></div>", unsafe_allow_html=True)
 
-        # 7. AI Guru (Final Fixed)
+        # 7. AI Guru (Final Fixed - No Header)
         with tabs[6]:
             st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
             if info:
                 guru = analyze_stock_guru(info, setup, symbol)
-                
-                # Use Proper Streamlit HTML injection (No broken f-strings)
                 st.markdown(f"""
                 <div class='ai-insight-box' style='border:2px solid {guru['color']}; text-align:center; margin-bottom:20px;'>
                     <h1 style='color:{guru['color']}; font-size:3rem; margin:0;'>{guru['verdict']}</h1>
@@ -594,7 +633,8 @@ if symbol:
                     for r in guru['reasons_q']:
                         st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
                 with c2:
-                    st.markdown("#### ⚖️ Valuation Score (ความคุ้มค่า)")
+                    # Removed 'Valuation Score (ความคุ้มค่า)' Header as requested
+                    st.markdown("#### ⚖️ Valuation Details")
                     for r in guru['reasons_v']:
                         st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
             else:
