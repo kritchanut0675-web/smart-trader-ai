@@ -136,7 +136,44 @@ def get_bitkub_ticker():
         return None
     except: return None
 
-# --- NEW: AI Calculation for THB ---
+# --- NEW: General AI Insight for S/R ---
+def generate_dynamic_insight(price, pivots, dynamics):
+    # 1. Trend Analysis
+    ema200 = dynamics['EMA 200']
+    ema20 = dynamics['EMA 20']
+    
+    if price > ema200:
+        if price > ema20: trend_msg = "Bullish Strong (แกร่งมาก)"
+        else: trend_msg = "Bullish Retrace (ย่อตัวในขาขึ้น)"
+        trend_color = "#00E676"
+    else:
+        if price < ema20: trend_msg = "Bearish Strong (ลงหนัก)"
+        else: trend_msg = "Bearish Correction (ดีดตัวในขาลง)"
+        trend_color = "#FF1744"
+
+    # 2. Proximity Check (Find nearest level)
+    all_levels = {**pivots, **{k:v for k,v in dynamics.items() if k != 'Current'}}
+    nearest_name = ""
+    nearest_price = 0
+    min_dist = float('inf')
+    
+    for name, lvl_price in all_levels.items():
+        dist = abs(price - lvl_price)
+        if dist < min_dist:
+            min_dist = dist
+            nearest_name = name
+            nearest_price = lvl_price
+            
+    dist_pct = (min_dist / price) * 100
+    
+    if dist_pct < 0.8: # Close within 0.8%
+        action_msg = f"⚠️ ราคากำลังทดสอบแนวสำคัญ **{nearest_name}** ({nearest_price:,.2f})"
+    else:
+        action_msg = f"🏃 ราคามีพื้นที่วิ่ง (Room to run) ไปหา **{nearest_name}** ({nearest_price:,.2f})"
+
+    return trend_msg, trend_color, action_msg
+
+# --- Bitkub AI Calculation ---
 def calculate_bitkub_ai_levels(high24, low24, last_price):
     pp = (high24 + low24 + last_price) / 3
     rng = high24 - low24
@@ -548,15 +585,15 @@ if symbol:
             else: score_color = "#FFD600"
             st.markdown(f"""<div class="ai-card" style="text-align:center; border-color:{score_color};"><div class="ai-score-circle" style="border-color:{score_color}; color:{score_color};">{ai_score}</div><div style="font-size:2rem; font-weight:bold; color:{score_color};">{ai_verdict}</div><p>{ai_text}</p></div>""", unsafe_allow_html=True)
             
-        # Tab 7: S/R Dynamics
+        # Tab 7: S/R Dynamics (Updated with AI Insight)
         with tabs[6]:
             pivots = calculate_pivot_points(df)
             dynamic = calculate_dynamic_levels(df)
             col_static, col_dynamic = st.columns(2)
+            
             with col_static:
                 st.markdown("### 🧱 Static Levels (Pivot Points)")
                 if pivots:
-                    # Fix indentation for HTML string
                     st.markdown(f"""
 <div style="display:flex; flex-direction:column; gap:8px;">
 <div style="background:#220a0a; border:1px solid #FF1744; padding:15px; border-radius:10px; display:flex; justify-content:space-between;"><span style="color:#FF1744; font-weight:bold;">R2 (ต้านแข็ง)</span> <span style="font-weight:bold;">{pivots['R2']:,.2f}</span></div>
@@ -565,6 +602,7 @@ if symbol:
 <div style="background:#0a1a11; border:1px solid #69F0AE; padding:15px; border-radius:10px; display:flex; justify-content:space-between;"><span style="color:#69F0AE; font-weight:bold;">S1 (รับแรก)</span> <span style="font-weight:bold;">{pivots['S1']:,.2f}</span></div>
 <div style="background:#0a2215; border:1px solid #00E676; padding:15px; border-radius:10px; display:flex; justify-content:space-between;"><span style="color:#00E676; font-weight:bold;">S2 (รับแข็ง)</span> <span style="font-weight:bold;">{pivots['S2']:,.2f}</span></div>
 </div>""", unsafe_allow_html=True)
+
             with col_dynamic:
                 st.markdown("### 🌊 Dynamic Levels (Moving Avgs)")
                 if dynamic:
@@ -578,12 +616,22 @@ if symbol:
                     html_dyn = "<div style='display:flex; flex-direction:column; gap:10px;'>"
                     for name, val in dyn_items:
                         role, color, pct = get_status(curr, val)
-                        # Fix single line f-string
                         html_dyn += f"<div style='background:{color}10; border-left:5px solid {color}; padding:15px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;'><div><div style='font-size:0.8rem; color:#888;'>{name}</div><div style='font-size:1.2rem; font-weight:bold;'>{val:,.2f}</div></div><div style='text-align:right;'><div style='font-size:0.9rem; font-weight:bold; color:{color};'>{role}</div><div style='font-size:0.8rem; color:#ccc;'>Dist: {pct}</div></div></div>"
                     html_dyn += "</div>"
                     st.markdown(html_dyn, unsafe_allow_html=True)
+            
+            # --- NEW: AI Insight Section in Tab 7 ---
+            st.markdown("---")
+            if pivots and dynamic:
+                t_msg, t_col, a_msg = generate_dynamic_insight(curr_price, pivots, dynamic)
+                st.markdown(f"""
+                <div style="background:#111; border:1px solid {t_col}; padding:20px; border-radius:15px;">
+                    <h3 style="color:{t_col}; margin-top:0;">🧠 AI Insight: {t_msg}</h3>
+                    <p style="font-size:1.1rem;">{a_msg}</p>
+                </div>
+                """, unsafe_allow_html=True)
 
-        # Tab 8: Bitkub AI S/R (NEW)
+        # Tab 8: Bitkub AI S/R
         with tabs[7]:
             st.markdown("### 🇹🇭 Bitkub AI Support & Resistance (บาท)")
             bk_coin_sel = st.radio("เลือกเหรียญ (THB Pair)", ["BTC", "ETH"], horizontal=True)
@@ -596,11 +644,8 @@ if symbol:
                     last_thb = coin_data.get('last', 0)
                     high_24 = coin_data.get('high24hr', 0)
                     low_24 = coin_data.get('low24hr', 0)
-                    
-                    # AI Calculation
                     ai_levels = calculate_bitkub_ai_levels(high_24, low_24, last_thb)
                     
-                    # Display Big Price
                     st.markdown(f"""
 <div style="text-align:center; padding:20px; background:#111; border-radius:20px; border:2px solid {ai_levels['color']}; margin-bottom:20px;">
 <div style="font-size:1.2rem; color:#aaa;">ราคา Bitkub ล่าสุด</div>
@@ -609,32 +654,19 @@ if symbol:
 </div>""", unsafe_allow_html=True)
                     
                     c_ai_1, c_ai_2 = st.columns(2)
-                    
                     with c_ai_1:
                         st.markdown("#### 🤖 AI Pivot Levels (Intraday)")
                         html_lvls = "<div style='display:flex; flex-direction:column; gap:8px;'>"
                         for lvl in ai_levels['levels']:
                             color = "#00E676" if lvl['type'] == 'sup' else "#FF1744" if lvl['type'] == 'res' else "#FFD600"
-                            # Fix indented f-string to prevent code block rendering
                             html_lvls += f"""<div style="display:flex; justify-content:space-between; padding:15px; background:#161616; border-left:5px solid {color}; border-radius:5px;"><span style="font-weight:bold; color:{color};">{lvl['name']}</span><span style="font-weight:bold; font-size:1.1rem;">{lvl['price']:,.2f}</span></div>"""
                         html_lvls += "</div>"
                         st.markdown(html_lvls, unsafe_allow_html=True)
-                        
                     with c_ai_2:
                         st.markdown("#### 📐 Fibonacci Golden Zone (24H)")
-                        st.info(f"""
-                        **กรอบทองคำ (Golden Zone):**
-                        \nโซนกลับตัวที่มีนัยยะสำคัญจาก High/Low ใน 24 ชม.
-                        \n\n🟢 **Golden Bottom (รับ):** {ai_levels['fib']['bot']:,.2f}
-                        \n🔴 **Golden Top (ต้าน):** {ai_levels['fib']['top']:,.2f}
-                        """)
-                        
+                        st.info(f"**กรอบทองคำ (Golden Zone):**\n\n🟢 **Golden Bottom (รับ):** {ai_levels['fib']['bot']:,.2f}\n🔴 **Golden Top (ต้าน):** {ai_levels['fib']['top']:,.2f}")
                         st.markdown("#### 🧠 AI Insight")
-                        st.caption(f"""
-                        ระบบวิเคราะห์จากพฤติกรรมราคาใน 24 ชั่วโมงล่าสุดของ Bitkub พบว่าราคาปัจจุบันอยู่ที่ **{last_thb:,.2f}** 
-                        ซึ่งอยู่ในโซน **{ai_levels['status']}** เมื่อเทียบกับจุดกึ่งกลางวัน
-                        \nแนะนำให้จับตาดูแนวรับ **S1 ({ai_levels['levels'][3]['price']:,.0f})** หากรับอยู่มีโอกาสเด้งไปทดสอบ Pivot
-                        """)
+                        st.caption(f"ระบบวิเคราะห์จากพฤติกรรมราคาใน 24 ชั่วโมงล่าสุดของ Bitkub พบว่าราคาปัจจุบันอยู่ที่ **{last_thb:,.2f}** ซึ่งอยู่ในโซน **{ai_levels['status']}**")
                 else:
                     st.error("ไม่พบข้อมูลเหรียญนี้ใน Bitkub API")
             else:
