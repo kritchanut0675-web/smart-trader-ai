@@ -37,32 +37,40 @@ if 'symbol' not in st.session_state: st.session_state.symbol = 'BTC-USD'
 
 def set_symbol(sym): st.session_state.symbol = sym
 
-# --- 2. CSS Styling ---
+# --- 2. CSS Styling (Ultra Modern UI) ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap');
         html, body, [class*="css"] { font-family: 'Kanit', sans-serif; }
+        
         .stApp { background-color: #050505 !important; color: #e0e0e0; }
         
+        /* Input Field */
         div[data-testid="stTextInput"] input { 
             background-color: #111 !important; color: #fff !important; 
             font-weight: bold !important; font-size: 1.2rem !important;
             border: 2px solid #00E5FF !important; border-radius: 10px;
         }
+
+        /* Cards */
         .glass-card {
             background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
             border: 1px solid #333; border-radius: 20px;
             padding: 25px; margin-bottom: 20px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
         }
+        
+        /* Stat Metric Box */
         .metric-box {
             background: #111; border-radius: 15px; padding: 20px;
-            border-left: 4px solid #333; transition: transform 0.2s;
+            border-left: 4px solid #333; position: relative; overflow: hidden;
+            transition: transform 0.2s;
         }
         .metric-box:hover { transform: translateY(-5px); border-left-color: #00E5FF; }
-        .metric-label { font-size: 0.9rem; color: #888; text-transform: uppercase; }
+        .metric-label { font-size: 0.9rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
         .metric-val { font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 5px; }
         
+        /* S/R Dynamic Cards */
         .sr-card {
             padding: 15px 20px; border-radius: 12px; margin-bottom: 10px;
             display: flex; justify-content: space-between; align-items: center;
@@ -72,6 +80,7 @@ st.markdown("""
         .sr-sup { background: linear-gradient(90deg, rgba(0, 230, 118, 0.2), rgba(0,0,0,0)); border-left: 5px solid #00E676; }
         .sr-piv { background: linear-gradient(90deg, rgba(255, 214, 0, 0.2), rgba(0,0,0,0)); border-left: 5px solid #FFD600; }
         
+        /* AI Verdict Ring */
         .verdict-ring {
             width: 140px; height: 140px; border-radius: 50%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -80,6 +89,7 @@ st.markdown("""
             box-shadow: 0 0 40px rgba(0,0,0,0.5);
         }
         
+        /* AI Insight Box */
         .ai-insight-box {
             background: linear-gradient(135deg, #111, #0a0a0a);
             border: 1px solid #333; border-radius: 15px; padding: 25px;
@@ -87,16 +97,26 @@ st.markdown("""
         }
         .ai-insight-icon { font-size: 2rem; margin-bottom: 10px; }
         
+        /* NEWS CARD */
         .news-card { 
             padding: 20px; margin-bottom: 15px; background: #111; 
             border-radius: 15px; border-left: 5px solid #888; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.2s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
         }
         .news-card:hover { transform: translateX(5px); background: #161616; }
         .nc-pos { border-left-color: #00E676; }
         .nc-neg { border-left-color: #FF1744; }
         .nc-neu { border-left-color: #FFD600; }
         
+        /* GURU CARD */
+        .guru-card {
+            background: #111; padding: 20px; border-radius: 15px; 
+            border: 1px solid #333; margin-bottom: 15px;
+        }
+        .guru-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 10px; color: #fff; }
+        
+        /* Custom Tabs */
         button[data-baseweb="tab"] { 
             font-size: 1rem !important; font-weight: 600 !important; 
             border-radius: 8px !important; margin: 0 4px !important;
@@ -106,6 +126,7 @@ st.markdown("""
             background: #00E5FF !important; color: #000 !important; border-color: #00E5FF !important;
         }
         
+        /* Centered Button */
         div.stButton > button {
             width: 100%; justify-content: center; font-size: 1.1rem !important; 
             padding: 12px !important; border-radius: 12px !important;
@@ -130,6 +151,91 @@ def get_market_data(symbol, period, interval):
 def get_stock_info(symbol):
     try: return yf.Ticker(symbol).info
     except: return None
+
+# --- NEW: AI Guru Analysis Logic ---
+def analyze_stock_guru(info, setup):
+    # 1. Fundamental Quality Score (เต็ม 3)
+    quality_score = 0
+    reasons_q = []
+    
+    roe = info.get('returnOnEquity', 0)
+    profit_margin = info.get('profitMargins', 0)
+    rev_growth = info.get('revenueGrowth', 0)
+    
+    if roe and roe > 0.15: 
+        quality_score += 1
+        reasons_q.append("✅ ROE สูง (>15%) บริหารทุนเก่ง")
+    elif roe and roe < 0:
+        reasons_q.append("❌ ROE ติดลบ ขาดทุน")
+        
+    if profit_margin and profit_margin > 0.10: 
+        quality_score += 1
+        reasons_q.append("✅ อัตรากำไรดี (>10%)")
+    
+    if rev_growth and rev_growth > 0: 
+        quality_score += 1
+        reasons_q.append("✅ รายได้เติบโต")
+    else:
+        reasons_q.append("⚠️ รายได้ไม่โต หรือหดตัว")
+
+    # 2. Valuation Score (เต็ม 3 - คะแนนมากคือถูก)
+    val_score = 0
+    reasons_v = []
+    
+    pe = info.get('trailingPE')
+    peg = info.get('pegRatio')
+    pb = info.get('priceToBook')
+    
+    if pe:
+        if pe < 15: 
+            val_score += 1
+            reasons_v.append("✅ P/E ต่ำ (ถูก)")
+        elif pe > 40:
+            reasons_v.append("❌ P/E สูงมาก (แพง)")
+    
+    if peg:
+        if peg < 1: 
+            val_score += 1
+            reasons_v.append("✅ PEG < 1 (โตคุ้มราคา)")
+        elif peg > 2:
+            reasons_v.append("❌ PEG สูง (โตไม่ทันราคา)")
+            
+    if pb and pb < 3: val_score += 1
+
+    # 3. Technical Confirmation
+    tech_signal = "Neutral"
+    if setup:
+        if setup['trend'] == "UPTREND (ขาขึ้น)": tech_signal = "Bullish"
+        elif setup['trend'] == "DOWNTREND (ขาลง)": tech_signal = "Bearish"
+
+    # 4. Final Verdict Logic
+    if quality_score >= 2 and val_score >= 2:
+        verdict = "💎 Hidden Gem (ของดีราคาถูก)"
+        desc = "หุ้นคุณภาพดี พื้นฐานแกร่ง และราคายังไม่แพงเกินไป น่าสะสมระยะยาว"
+        color = "#00E676"
+    elif quality_score >= 2 and val_score < 2:
+        verdict = "🏆 Quality / Growth (ดีแต่แพง)"
+        desc = "หุ้นเทพ พื้นฐานเยี่ยม แต่ราคา Price In ไปเยอะแล้ว รอจังหวะย่อค่อยรับ"
+        color = "#00E5FF"
+    elif quality_score < 2 and val_score >= 2:
+        verdict = "🚬 Cigar Butt (ของถูกมีตำหนิ)"
+        desc = "ราคาถูกมาก แต่อาจมีปัญหาพื้นฐานหรือกำไรไม่ดี เก็งกำไรด้วยความระวัง"
+        color = "#FFD600"
+    else:
+        verdict = "⚠️ Caution / Avoid (เลี่ยงได้เลี่ยง)"
+        desc = "พื้นฐานยังไม่ชัดเจนและราคาอาจแพงเกินมูลค่า หรือเป็นหุ้นปั่น"
+        color = "#FF1744"
+        
+    return {
+        "verdict": verdict,
+        "desc": desc,
+        "color": color,
+        "q_score": quality_score,
+        "v_score": val_score,
+        "reasons_q": reasons_q,
+        "reasons_v": reasons_v,
+        "tech": tech_signal
+    }
 
 def get_sector_pe_benchmark(sector):
     benchmarks = {
@@ -162,7 +268,7 @@ def get_ai_analyzed_news_thai(symbol):
     news_list = []
     translator = GoogleTranslator(source='auto', target='th') if HAS_TRANSLATOR else None
     
-    # Finnhub
+    # 1. Finnhub
     fh_news = get_finnhub_news(symbol)
     if fh_news:
         for i in fh_news:
@@ -180,7 +286,7 @@ def get_ai_analyzed_news_thai(symbol):
             
             news_list.append({'title': t_th, 'summary': s_th, 'link': l, 'icon': icon, 'class': cls, 'label': lbl, 'score': sc, 'source': 'Finnhub'})
 
-    # Google News
+    # 2. Google News
     if len(news_list) < 3:
         try:
             cl_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
@@ -373,7 +479,7 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
 
-        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R Dynamic", "🇹🇭 Bitkub AI"])
+        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R Dynamic", "🧠 AI Guru", "🇹🇭 Bitkub AI"])
 
         # 1. Chart
         with tabs[0]:
@@ -523,8 +629,32 @@ if symbol:
                             cl = "#00E676" if curr > v else "#FF1744"
                             st.markdown(f"<div class='sr-card' style='border-left:4px solid {cl}; background:rgba({255 if cl=='#FF1744' else 0}, {230 if cl=='#00E676' else 23}, {118 if cl=='#00E676' else 68}, 0.1);'><span>{k}</span><div style='text-align:right;'>{v:,.2f}<br><small style='color:{cl}'>{dist:+.2f}%</small></div></div>", unsafe_allow_html=True)
 
-        # 7. Bitkub AI
+        # 7. AI Guru (New)
         with tabs[6]:
+            st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
+            if info:
+                guru = analyze_stock_guru(info, setup)
+                st.markdown(f"""
+                <div class='ai-insight-box' style='border:2px solid {guru['color']}; text-align:center; margin-bottom:20px;'>
+                    <h1 style='color:{guru['color']}; font-size:3rem; margin:0;'>{guru['verdict']}</h1>
+                    <p style='font-size:1.2rem; color:#fff;'>{guru['desc']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.markdown("#### 🏢 Quality Score (พื้นฐาน)")
+                    for r in guru['reasons_q']:
+                        st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
+                with c2:
+                    st.markdown("#### ⚖️ Valuation Score (ความคุ้มค่า)")
+                    for r in guru['reasons_v']:
+                        st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
+            else:
+                st.info("⚠️ ไม่สามารถวิเคราะห์ได้ (ไม่มีข้อมูลพื้นฐาน/งบการเงิน) สำหรับสินทรัพย์นี้")
+
+        # 8. Bitkub AI
+        with tabs[7]:
             bk_sel = st.radio("เลือกเหรียญ (THB)", ["BTC", "ETH"], horizontal=True)
             if bk_data:
                 pair = f"THB_{bk_sel}"
