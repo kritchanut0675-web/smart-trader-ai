@@ -12,21 +12,22 @@ import requests
 import datetime
 import re
 
-# --- NEW: Import Newspaper for Article Scraping ---
+# --- Library Setup ---
+# 1. Newspaper3k for Article Scraping
 try:
     from newspaper import Article
     HAS_NEWSPAPER = True
 except ImportError:
     HAS_NEWSPAPER = False
 
-# Import translation library
+# 2. Deep Translator
 try:
     from deep_translator import GoogleTranslator
     HAS_TRANSLATOR = True
 except ImportError:
     HAS_TRANSLATOR = False
 
-# Config NLTK
+# 3. NLTK Config
 try: nltk.data.find('tokenizers/punkt')
 except LookupError: nltk.download('punkt')
 
@@ -41,6 +42,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Initialize Session State
 if 'symbol' not in st.session_state:
     st.session_state.symbol = 'BTC-USD'
 if 'article_url' not in st.session_state:
@@ -49,81 +51,53 @@ if 'article_url' not in st.session_state:
 def set_symbol(sym):
     st.session_state.symbol = sym
 
-# --- 2. Ultra Black CSS (Big & Clear) ---
+# --- 2. Ultra Black CSS ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap');
         html, body, [class*="css"] { font-family: 'Kanit', sans-serif; }
-        
-        /* BLACK BACKGROUND */
         .stApp { background-color: #000000 !important; color: #ffffff; }
-
-        /* INPUT BOX */
+        
         div[data-testid="stTextInput"] input { 
             background-color: #ffffff !important; color: #000000 !important; 
             font-weight: 700 !important; font-size: 1.5rem !important; height: 60px !important;
             border: 3px solid #00E5FF !important; border-radius: 15px !important;
             padding: 10px 20px !important; box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
         }
-
-        /* CARDS */
+        
         .glass-card {
             background: rgba(20, 20, 20, 0.6); backdrop-filter: blur(10px);
             border-radius: 25px; border: 1px solid rgba(255, 255, 255, 0.15);
             padding: 35px; margin-bottom: 30px; box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
         }
         
-        /* BIG S/R TABLE */
         .sr-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
         .sr-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; border-radius: 15px; font-size: 1.5rem; font-weight: bold; }
         .res-row { background: linear-gradient(90deg, rgba(255, 23, 68, 0.1), rgba(0,0,0,0)); border-left: 8px solid #FF1744; color: #FF1744; }
         .sup-row { background: linear-gradient(90deg, rgba(0, 230, 118, 0.1), rgba(0,0,0,0)); border-left: 8px solid #00E676; color: #00E676; }
         .curr-row { background: #222; border: 1px solid #555; color: #fff; justify-content: center; font-size: 1.8rem; text-shadow: 0 0 10px white; }
 
-        /* STATS BOX */
         .stat-box { background: #0a0a0a; border-radius: 20px; padding: 25px; text-align: center; border: 1px solid #333; margin-bottom: 15px; }
         .stat-label { color: #888; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px; }
         .stat-value { font-size: 2.5rem; font-weight: 800; color: #fff; }
 
-        /* FUNDAMENTAL BOX */
-        .fund-box { 
-            background: #111; border: 1px solid #444; border-radius: 15px; padding: 20px; 
-            margin-bottom: 10px; position: relative; overflow: hidden;
-        }
+        .fund-box { background: #111; border: 1px solid #444; border-radius: 15px; padding: 20px; margin-bottom: 10px; }
         .fund-title { font-size: 1rem; color: #aaa; margin-bottom: 5px; text-transform: uppercase; }
         .fund-val { font-size: 1.8rem; font-weight: bold; color: #fff; }
         .fund-desc { font-size: 0.9rem; color: #888; margin-top: 5px; }
 
-        /* NEWS CARD */
-        .news-card { 
-            padding: 25px; margin-bottom: 10px; 
-            background: #111; border-radius: 15px; 
-            border-left: 6px solid #888; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .news-summary {
-            font-size: 1rem; color: #ccc; margin-top: 10px; line-height: 1.6;
-            background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;
-        }
+        .news-card { padding: 25px; margin-bottom: 15px; background: #111; border-radius: 15px; border-left: 6px solid #888; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .news-card:hover { transform: translateY(-2px); background: #161616; }
+        .news-summary { font-size: 1rem; color: #ccc; margin-top: 10px; line-height: 1.6; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; }
+        .nc-pos { border-left-color: #00E676; }
+        .nc-neg { border-left-color: #FF1744; }
+        .nc-neu { border-left-color: #FFD600; }
 
-        /* AI VERDICT CARD */
-        .ai-card {
-            background: linear-gradient(145deg, #111, #0d0d0d); border: 2px solid #00E5FF;
-            border-radius: 20px; padding: 30px; position: relative; box-shadow: 0 0 30px rgba(0, 229, 255, 0.1);
-        }
-        .ai-score-circle {
-            width: 100px; height: 100px; border-radius: 50%; border: 5px solid #00E5FF;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 2.5rem; font-weight: bold; color: #00E5FF; margin: 0 auto 20px auto;
-        }
+        .ai-card { background: linear-gradient(145deg, #111, #0d0d0d); border: 2px solid #00E5FF; border-radius: 20px; padding: 30px; position: relative; box-shadow: 0 0 30px rgba(0, 229, 255, 0.1); }
+        .ai-score-circle { width: 100px; height: 100px; border-radius: 50%; border: 5px solid #00E5FF; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; color: #00E5FF; margin: 0 auto 20px auto; }
 
-        /* BUTTONS */
-        div.stButton > button {
-            font-size: 1.1rem !important; padding: 10px 20px !important; border-radius: 10px !important;
-            background: #111; border: 1px solid #333; color: #fff; width: 100%;
-        }
+        div.stButton > button { font-size: 1.1rem !important; padding: 10px 20px !important; border-radius: 10px !important; background: #111; border: 1px solid #333; color: #fff; width: 100%; }
         div.stButton > button:hover { background: #00E5FF; color: #000 !important; font-weight: bold; }
-        
         button[data-baseweb="tab"] { font-size: 1.1rem !important; font-weight: 600 !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -225,7 +199,6 @@ def get_ai_analyzed_news_thai(symbol):
 
                 blob = TextBlob(title)
                 score = blob.sentiment.polarity
-                
                 if score > 0.05: sentiment, color, icon = "ข่าวดี (Positive)", "nc-pos", "🚀"
                 elif score < -0.05: sentiment, color, icon = "ข่าวร้าย (Negative)", "nc-neg", "🔻"
                 else: sentiment, color, icon = "ทั่วไป (Neutral)", "nc-neu", "⚖️"
@@ -250,29 +223,22 @@ def get_ai_analyzed_news_thai(symbol):
 def fetch_and_translate_full_article(url):
     if not HAS_NEWSPAPER:
         return "❌ กรุณาติดตั้ง Library: pip install newspaper3k lxml_html_clean", ""
-    
     try:
         article = Article(url)
         article.download()
         article.parse()
-        
         full_text = article.text
         title = article.title
-        
-        # Translate
         title_th = title
         text_th = full_text
-        
         if HAS_TRANSLATOR and full_text:
             translator = GoogleTranslator(source='auto', target='th')
             try:
                 title_th = translator.translate(title)
-                # Chunk translation (max 4500 chars per chunk)
                 chunks = [full_text[i:i+4500] for i in range(0, len(full_text), 4500)]
                 translated_chunks = [translator.translate(chunk) for chunk in chunks]
                 text_th = "\n\n".join(translated_chunks)
             except: pass
-            
         return title_th, text_th
     except Exception as e:
         return "❌ ไม่สามารถดึงเนื้อหาข่าวได้ (เว็บไซต์อาจป้องกัน Bot)", str(e)
@@ -281,7 +247,6 @@ def fetch_and_translate_full_article(url):
 def generate_dynamic_insight(price, pivots, dynamics):
     ema200 = dynamics['EMA 200']
     ema20 = dynamics['EMA 20']
-    
     if price > ema200:
         if price > ema20: trend_msg, trend_color = "Bullish Strong (แกร่งมาก)", "#00E676"
         else: trend_msg, trend_color = "Bullish Retrace (ย่อตัวในขาขึ้น)", "#00E676"
@@ -293,18 +258,15 @@ def generate_dynamic_insight(price, pivots, dynamics):
     nearest_name = ""
     nearest_price = 0
     min_dist = float('inf')
-    
     for name, lvl_price in all_levels.items():
         dist = abs(price - lvl_price)
         if dist < min_dist:
             min_dist = dist
             nearest_name = name
             nearest_price = lvl_price
-            
     dist_pct = (min_dist / price) * 100
     if dist_pct < 0.8: action_msg = f"⚠️ ราคากำลังทดสอบแนวสำคัญ **{nearest_name}** ({nearest_price:,.2f})"
     else: action_msg = f"🏃 ราคามีพื้นที่วิ่ง (Room to run) ไปหา **{nearest_name}** ({nearest_price:,.2f})"
-
     return trend_msg, trend_color, action_msg
 
 def calculate_bitkub_ai_levels(high24, low24, last_price):
@@ -316,11 +278,9 @@ def calculate_bitkub_ai_levels(high24, low24, last_price):
     s2 = pp - rng
     fib_high = low24 + (rng * 0.618)
     fib_low = low24 + (rng * 0.382)
-    
     mid_point = (high24 + low24) / 2
     if last_price > mid_point: status, status_color = "BULLISH (กระทิง)", "#00E676"
     else: status, status_color = "BEARISH (หมี)", "#FF1744"
-        
     return {
         "levels": [
             {"name": "🚀 R2 (Breakout)", "price": r2, "type": "res"},
@@ -348,6 +308,7 @@ def calculate_technical_setup(df):
         close = df['Close'].iloc[-1]
         ema50 = df['Close'].ewm(span=50).mean().iloc[-1]
         ema200 = df['Close'].ewm(span=200).mean().iloc[-1]
+        
         tr1 = df['High'] - df['Low']
         tr2 = abs(df['High'] - df['Close'].shift())
         tr3 = abs(df['Low'] - df['Close'].shift())
@@ -486,21 +447,21 @@ with st.sidebar:
         c_eth = "#00E676" if eth_chg >= 0 else "#FF1744"
 
         st.markdown(f"""
-<div style="background:#111; padding:10px; border-radius:10px; margin-bottom:5px;">
-<div style="display:flex; justify-content:space-between;">
-<span style="font-size:0.9rem; color:#aaa;">BTC/THB</span>
-<span style="color:{c_btc}; font-size:0.8rem;">{btc_chg:+.2f}%</span>
-</div>
-<div style="font-size:1.2rem; font-weight:bold; color:{c_btc};">{btc_thb:,.2f}</div>
-</div>
-<div style="background:#111; padding:10px; border-radius:10px;">
-<div style="display:flex; justify-content:space-between;">
-<span style="font-size:0.9rem; color:#aaa;">ETH/THB</span>
-<span style="color:{c_eth}; font-size:0.8rem;">{eth_chg:+.2f}%</span>
-</div>
-<div style="font-size:1.2rem; font-weight:bold; color:{c_eth};">{eth_thb:,.2f}</div>
-</div>
-""", unsafe_allow_html=True)
+        <div style="background:#111; padding:10px; border-radius:10px; margin-bottom:5px;">
+            <div style="display:flex; justify-content:space-between;">
+                <span style="font-size:0.9rem; color:#aaa;">BTC/THB</span>
+                <span style="color:{c_btc}; font-size:0.8rem;">{btc_chg:+.2f}%</span>
+            </div>
+            <div style="font-size:1.2rem; font-weight:bold; color:{c_btc};">{btc_thb:,.2f}</div>
+        </div>
+        <div style="background:#111; padding:10px; border-radius:10px;">
+            <div style="display:flex; justify-content:space-between;">
+                <span style="font-size:0.9rem; color:#aaa;">ETH/THB</span>
+                <span style="color:{c_eth}; font-size:0.8rem;">{eth_chg:+.2f}%</span>
+            </div>
+            <div style="font-size:1.2rem; font-weight:bold; color:{c_eth};">{eth_thb:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
     else:
         st.caption("กำลังโหลดข้อมูล Bitkub...")
         
@@ -625,7 +586,7 @@ if symbol:
             else:
                 st.info("ไม่พบข้อมูลพื้นฐาน (Fundamental Data) สำหรับสินทรัพย์นี้ (อาจเป็น Crypto หรือ Commodity)")
 
-        # Tab 3: AI News (With Button to Read Full)
+        # Tab 3: AI News
         with tabs[2]:
             st.markdown("### 📰 AI Sentiment Analysis (วิเคราะห์อารมณ์ข่าว)")
             if news_list:
@@ -644,7 +605,6 @@ if symbol:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Button to read full article
                     if st.button(f"📖 อ่านฉบับเต็ม + แปลไทย", key=n['link']):
                         st.session_state.article_url = n['link']
                         st.success("✅ เนื้อหาถูกส่งไปที่แท็บ '📖 Full Reader' แล้ว กรุณากดเลือกแท็บเพื่ออ่าน")
@@ -652,7 +612,7 @@ if symbol:
                     st.markdown("---")
             else: st.info("ไม่พบข่าวในขณะนี้ หรือ API ถูกจำกัดการเข้าถึง")
 
-        # Tab 4: Full Reader (NEW)
+        # Tab 4: Full Reader
         with tabs[3]:
             st.markdown("### 📖 Full Article Reader (โหมดอ่านฉบับเต็ม)")
             if st.session_state.article_url:
@@ -699,7 +659,7 @@ if symbol:
             else: score_color = "#FFD600"
             st.markdown(f"""<div class="ai-card" style="text-align:center; border-color:{score_color};"><div class="ai-score-circle" style="border-color:{score_color}; color:{score_color};">{ai_score}</div><div style="font-size:2rem; font-weight:bold; color:{score_color};">{ai_verdict}</div><p>{ai_text}</p></div>""", unsafe_allow_html=True)
             
-        # Tab 8: S/R Dynamics (With AI Insight)
+        # Tab 8: S/R Dynamics
         with tabs[7]:
             pivots = calculate_pivot_points(df)
             dynamic = calculate_dynamic_levels(df)
