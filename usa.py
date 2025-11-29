@@ -55,11 +55,13 @@ div[data-testid="stTextInput"] input{background-color:#ffffff!important;color:#0
 .fund-box{background:#111;border:1px solid #444;border-radius:15px;padding:20px;margin-bottom:10px;}
 .news-card{padding:25px;margin-bottom:15px;background:#111;border-radius:15px;border-left:6px solid #888;transition:transform 0.2s;}
 .news-card:hover{transform:translateY(-2px);background:#161616;}
+.news-summary{font-size:1rem;color:#ccc;margin-top:10px;line-height:1.6;background:rgba(255,255,255,0.05);padding:15px;border-radius:10px;}
 .nc-pos{border-left-color:#00E676;} .nc-neg{border-left-color:#FF1744;} .nc-neu{border-left-color:#FFD600;}
 .ai-card{background:linear-gradient(145deg,#111,#0d0d0d);border:2px solid #00E5FF;border-radius:20px;padding:30px;text-align:center;}
 .ai-score-circle{width:100px;height:100px;border-radius:50%;border:5px solid #00E5FF;display:flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:bold;color:#00E5FF;margin:0 auto 20px auto;}
 div.stButton>button{font-size:1.1rem!important;padding:10px 20px!important;border-radius:10px!important;background:#111;border:1px solid #333;color:#fff;width:100%;}
 div.stButton>button:hover{background:#00E5FF;color:#000!important;font-weight:bold;}
+button[data-baseweb="tab"]{font-size:1.1rem!important;font-weight:600!important;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -162,22 +164,30 @@ def fetch_full_article(url):
 
 def calculate_technical_setup(df):
     try:
+        # Calculate full series for plotting
+        delta = df['Close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+        rs = gain / loss
+        rsi_series = 100 - (100 / (1 + rs)) # Full series
+        
+        # Get last values for logic
         close = df['Close'].iloc[-1]
         ema50 = df['Close'].ewm(span=50).mean().iloc[-1]
         ema200 = df['Close'].ewm(span=200).mean().iloc[-1]
         tr = pd.concat([df['High']-df['Low'], abs(df['High']-df['Close'].shift()), abs(df['Low']-df['Close'].shift())], axis=1).max(axis=1)
         atr = tr.rolling(14).mean().iloc[-1]
-        delta = df['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs)).iloc[-1]
-
+        
         if close > ema50 and ema50 > ema200: trend, sig, col, sc = "Uptrend", "BUY", "#00E676", 2
         elif close < ema50 and ema50 < ema200: trend, sig, col, sc = "Downtrend", "SELL", "#FF1744", -2
         else: trend, sig, col, sc = "Sideways", "WAIT", "#888", 0
         
-        return {'trend': trend, 'signal': sig, 'color': col, 'rsi': rsi, 'entry': close, 'sl': close-(1.5*atr) if sc>=0 else close+(1.5*atr), 'tp': close+(2.5*atr) if sc>=0 else close-(2.5*atr)}
+        return {
+            'trend': trend, 'signal': sig, 'color': col, 
+            'rsi': rsi_series, 'rsi_val': rsi_series.iloc[-1], # Separate series and value
+            'entry': close, 'sl': close-(1.5*atr) if sc>=0 else close+(1.5*atr), 
+            'tp': close+(2.5*atr) if sc>=0 else close-(2.5*atr)
+        }
     except: return None
 
 def get_levels(df):
@@ -185,21 +195,81 @@ def get_levels(df):
     for i in range(5, len(df)-5):
         if df['Low'][i] == df['Low'][i-5:i+6].min(): levels.append(df['Low'][i])
         elif df['High'][i] == df['High'][i-5:i+6].max(): levels.append(df['High'][i])
-    return sorted(list(set([l for l in levels if abs(l - df['Close'].iloc[-1])/df['Close'].iloc[-1] < 0.15]))) # Filter near price
+    return sorted(list(set([l for l in levels if abs(l - df['Close'].iloc[-1])/df['Close'].iloc[-1] < 0.15])))
+
+def calculate_pivot_points(df):
+    try:
+        prev = df.iloc[-2]
+        pp = (prev['High'] + prev['Low'] + prev['Close']) / 3
+        return {"PP": pp, "R1": (2*pp)-prev['Low'], "S1": (2*pp)-prev['High'], "R2": pp+(prev['High']-prev['Low']), "S2": pp-(prev['High']-prev['Low'])}
+    except: return None
+
+def calculate_dynamic_levels(df):
+    try:
+        sma = df['Close'].rolling(20).mean().iloc[-1]
+        std = df['Close'].rolling(20).std().iloc[-1]
+        return {
+            "EMA 20": df['Close'].ewm(span=20).mean().iloc[-1],
+            "EMA 50": df['Close'].ewm(span=50).mean().iloc[-1],
+            "EMA 200": df['Close'].ewm(span=200).mean().iloc[-1],
+            "BB Upper": sma + (2*std), "BB Lower": sma - (2*std),
+            "Current": df['Close'].iloc[-1]
+        }
+    except: return None
+
+def generate_dynamic_insight(price, pivots, dynamics):
+    e200, e20 = dynamics['EMA 200'], dynamics['EMA 20']
+    if price > e200: 
+        msg, col = ("Bullish Strong", "#00E676") if price > e20 else ("Bullish Retrace", "#00E676")
+    else:
+        msg, col = ("Bearish Strong", "#FF1744") if price < e20 else ("Bearish Correction", "#FF1744")
+    
+    all_lvls = {**pivots, **{k:v for k,v in dynamics.items() if k!='Current'}}
+    n_name, n_price, min_d = "", 0, float('inf')
+    for k,v in all_lvls.items():
+        if abs(price-v) < min_d: min_d, n_name, n_price = abs(price-v), k, v
+    
+    act = f"⚠️ Testing **{n_name}**" if (min_d/price)*100 < 0.8 else f"🏃 Room to run to **{n_name}**"
+    return msg, col, act
+
+def calculate_bitkub_ai_levels(h, l, c):
+    pp = (h+l+c)/3
+    rng = h-l
+    mid = (h+l)/2
+    st, col = ("BULLISH", "#00E676") if c > mid else ("BEARISH", "#FF1744")
+    return {
+        "levels": [
+            {"name": "R2", "price": pp+rng, "type": "res"},
+            {"name": "R1", "price": (2*pp)-l, "type": "res"},
+            {"name": "PIVOT", "price": pp, "type": "neu"},
+            {"name": "S1", "price": (2*pp)-h, "type": "sup"},
+            {"name": "S2", "price": pp-rng, "type": "sup"}
+        ],
+        "fib": {"top": l+(rng*0.618), "bot": l+(rng*0.382)},
+        "status": st, "color": col
+    }
+
+def calculate_heikin_ashi(df):
+    ha = df.copy()
+    ha['Close'] = (df['Open']+df['High']+df['Low']+df['Close'])/4
+    ha['Open'] = [ (df['Open'][0]+df['Close'][0])/2 ] + [0]*(len(df)-1)
+    for i in range(1, len(df)): ha['Open'].iloc[i] = (ha['Open'].iloc[i-1]+ha['Close'].iloc[i-1])/2
+    ha['High'] = ha[['High','Open','Close']].max(axis=1)
+    ha['Low'] = ha[['Low','Open','Close']].min(axis=1)
+    return ha
 
 def gen_ai_verdict(setup, news):
     score = 50
     text = ""
-    if setup['trend'] == "Uptrend": score += 20; text += "📈 เทคนิคขาขึ้นแข็งแกร่ง "
-    elif setup['trend'] == "Downtrend": score -= 20; text += "📉 เทคนิคขาลงชัดเจน "
-    else: text += "⚖️ ตลาดไซด์เวย์ "
+    if setup['trend'] == "Uptrend": score += 20; text += "📈 เทคนิคขาขึ้น "
+    elif setup['trend'] == "Downtrend": score -= 20; text += "📉 เทคนิคขาลง "
     
-    if setup['rsi'] > 70: score -= 5; text += "(RSI Overbought ระวังแรงขาย) "
-    elif setup['rsi'] < 30: score += 5; text += "(RSI Oversold รอเด้ง) "
+    if setup['rsi_val'] > 70: score -= 5; text += "(RSI Overbought) "
+    elif setup['rsi_val'] < 30: score += 5; text += "(RSI Oversold) "
     
     n_score = sum([n['score'] for n in news]) if news else 0
-    if n_score > 0.5: score += 15; text += "\n📰 ข่าวสารเป็นบวกสนับสนุน"
-    elif n_score < -0.5: score -= 15; text += "\n📰 ข่าวสารเชิงลบกดดัน"
+    if n_score > 0.5: score += 15; text += "\n📰 ข่าวบวก"
+    elif n_score < -0.5: score -= 15; text += "\n📰 ข่าวลบ"
     
     score = max(0, min(100, score))
     verd = "STRONG BUY" if score>=75 else "BUY" if score>=55 else "SELL" if score<=25 else "STRONG SELL" if score<=15 else "HOLD"
@@ -262,7 +332,10 @@ if symbol:
             fig = make_subplots(rows=2, cols=1, row_heights=[0.7, 0.3], shared_xaxes=True)
             fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
             fig.add_trace(go.Scatter(x=df.index, y=df['Close'].ewm(span=50).mean(), line=dict(color='#2962FF'), name="EMA50"), row=1, col=1)
+            # FIX: Use full RSI series
             fig.add_trace(go.Scatter(x=df.index, y=setup['rsi'] if setup else [50]*len(df), line=dict(color='#AA00FF'), name="RSI"), row=2, col=1)
+            fig.add_hline(y=70, line_color='red', line_dash='dot', row=2, col=1)
+            fig.add_hline(y=30, line_color='green', line_dash='dot', row=2, col=1)
             fig.update_layout(template='plotly_dark', height=600, margin=dict(l=0,r=0,t=0,b=0))
             st.plotly_chart(fig, use_container_width=True)
 
@@ -328,6 +401,12 @@ if symbol:
             sup = sorted([l for l in levels if l < curr], reverse=True)[:3]
             st.write("RESISTANCE (ต้าน):", [f"{r:,.2f}" for r in reversed(res)])
             st.write("SUPPORT (รับ):", [f"{s:,.2f}" for s in sup])
+            
+            pivots = calculate_pivot_points(df)
+            dynamic = calculate_dynamic_levels(df)
+            if pivots and dynamic:
+                t_msg, t_col, a_msg = generate_dynamic_insight(curr, pivots, dynamic)
+                st.markdown(f"""<div style="background:#111; border:1px solid {t_col}; padding:20px; border-radius:15px; margin-top:20px;"><h3 style="color:{t_col}; margin-top:0;">🧠 AI Insight: {t_msg}</h3><p>{a_msg}</p></div>""", unsafe_allow_html=True)
 
         with tabs[7]: # Bitkub AI
             bk_sel = st.radio("Bitkub Coin", ["BTC","ETH"], horizontal=True)
@@ -335,8 +414,19 @@ if symbol:
                 pair = f"THB_{bk_sel}"
                 d = bk.get(pair, {})
                 last, h24, l24 = d.get('last',0), d.get('high24hr',0), d.get('low24hr',0)
-                pivot = (h24+l24+last)/3
-                st.markdown(f"### Price: {last:,.0f} THB")
-                st.write(f"Pivot: {pivot:,.0f}")
-                st.write(f"R1: {(2*pivot)-l24:,.0f} | S1: {(2*pivot)-h24:,.0f}")
+                ai_bk = calculate_bitkub_ai_levels(h24, l24, last)
+                
+                st.markdown(f"""<div style="text-align:center;padding:20px;background:#111;border-radius:20px;border:2px solid {ai_bk['color']};margin-bottom:20px;">
+                <div style="font-size:1.2rem;color:#aaa;">Price</div>
+                <div style="font-size:3rem;font-weight:bold;color:#fff;">{last:,.0f}</div>
+                <div style="font-size:1.5rem;font-weight:bold;color:{ai_bk['color']};">{ai_bk['status']}</div></div>""", unsafe_allow_html=True)
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    for l in ai_bk['levels']:
+                        cl = "#00E676" if l['type']=='sup' else "#FF1744" if l['type']=='res' else "#FFD600"
+                        st.markdown(f"<div style='display:flex;justify-content:space-between;padding:10px;border-left:5px solid {cl};background:#161616;margin-bottom:5px;'><b>{l['name']}</b><span>{l['price']:,.0f}</span></div>", unsafe_allow_html=True)
+                with c2:
+                    st.info(f"Golden Top: {ai_bk['fib']['top']:,.0f}\nGolden Bot: {ai_bk['fib']['bot']:,.0f}")
+
     else: st.error("ไม่พบข้อมูล")
