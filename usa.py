@@ -22,6 +22,7 @@ except ImportError:
 try: nltk.data.find('tokenizers/punkt')
 except LookupError: nltk.download('punkt')
 
+# API Config
 FINNHUB_KEY = "d4l5ku1r01qt7v18ll40d4l5ku1r01qt7v18ll4g" 
 
 # --- 1. Setup & Design ---
@@ -44,16 +45,14 @@ st.markdown("""
         
         .stApp { background-color: #050505 !important; color: #e0e0e0; }
         
-        /* Modern Input */
+        /* Input Field */
         div[data-testid="stTextInput"] input { 
             background-color: #111 !important; color: #fff !important; 
             font-weight: bold !important; font-size: 1.2rem !important;
-            border: 1px solid #333 !important; border-radius: 12px;
-            padding: 10px 15px !important;
+            border: 2px solid #00E5FF !important; border-radius: 10px;
         }
-        div[data-testid="stTextInput"] input:focus { border-color: #00E5FF !important; }
 
-        /* Glass Cards */
+        /* Cards */
         .glass-card {
             background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
             border: 1px solid #333; border-radius: 20px;
@@ -98,7 +97,7 @@ st.markdown("""
         }
         .ai-insight-icon { font-size: 2rem; margin-bottom: 10px; }
         
-        /* NEWS CARD (Restored Sentiment) */
+        /* NEWS CARD */
         .news-card { 
             padding: 20px; margin-bottom: 15px; background: #111; 
             border-radius: 15px; border-left: 5px solid #888; 
@@ -146,6 +145,17 @@ def get_stock_info(symbol):
     try: return yf.Ticker(symbol).info
     except: return None
 
+# --- NEW: Sector PE Benchmark ---
+def get_sector_pe_benchmark(sector):
+    # ค่าเฉลี่ย P/E โดยประมาณของแต่ละอุตสาหกรรม (Global Benchmark)
+    benchmarks = {
+        'Technology': 25, 'Financial Services': 15, 'Healthcare': 22,
+        'Consumer Cyclical': 20, 'Industrials': 20, 'Energy': 12,
+        'Utilities': 18, 'Real Estate': 35, 'Basic Materials': 15,
+        'Communication Services': 20
+    }
+    return benchmarks.get(sector, 20) # Default 20
+
 @st.cache_data(ttl=15)
 def get_bitkub_ticker():
     try:
@@ -175,13 +185,9 @@ def get_ai_analyzed_news_thai(symbol):
             t, s, l = i.get('headline',''), i.get('summary',''), i.get('url','#')
             sc = TextBlob(t).sentiment.polarity
             
-            # --- RESTORED: Sentiment Logic ---
-            if sc > 0.05: 
-                lbl, icon, cls = "ข่าวดี (Positive)", "🚀", "nc-pos"
-            elif sc < -0.05: 
-                lbl, icon, cls = "ข่าวร้าย (Negative)", "🔻", "nc-neg"
-            else: 
-                lbl, icon, cls = "ทั่วไป (Neutral)", "⚖️", "nc-neu"
+            if sc > 0.05: lbl, icon, cls = "ข่าวดี (Positive)", "🚀", "nc-pos"
+            elif sc < -0.05: lbl, icon, cls = "ข่าวร้าย (Negative)", "🔻", "nc-neg"
+            else: lbl, icon, cls = "ทั่วไป (Neutral)", "⚖️", "nc-neu"
             
             t_th, s_th = t, s
             if translator:
@@ -204,13 +210,9 @@ def get_ai_analyzed_news_thai(symbol):
                 s = re.sub(re.compile('<.*?>'), '', getattr(i, 'summary', '') or getattr(i, 'description', ''))[:300]
                 sc = TextBlob(t).sentiment.polarity
                 
-                # --- RESTORED: Sentiment Logic ---
-                if sc > 0.05: 
-                    lbl, icon, cls = "ข่าวดี (Positive)", "🚀", "nc-pos"
-                elif sc < -0.05: 
-                    lbl, icon, cls = "ข่าวร้าย (Negative)", "🔻", "nc-neg"
-                else: 
-                    lbl, icon, cls = "ทั่วไป (Neutral)", "⚖️", "nc-neu"
+                if sc > 0.05: lbl, icon, cls = "ข่าวดี (Positive)", "🚀", "nc-pos"
+                elif sc < -0.05: lbl, icon, cls = "ข่าวร้าย (Negative)", "🔻", "nc-neg"
+                else: lbl, icon, cls = "ทั่วไป (Neutral)", "⚖️", "nc-neu"
                 
                 t_th, s_th = t, s
                 if translator:
@@ -349,10 +351,9 @@ with st.sidebar:
 
 # --- 5. Main ---
 st.markdown("<h2 style='color:#00E5FF;'>🔍 Smart Search</h2>", unsafe_allow_html=True)
-c1, c2 = st.columns([3, 1]) # Adjusted for better centering
+c1, c2 = st.columns([3, 1]) 
 with c1: sym_input = st.text_input("Symbol", st.session_state.symbol, label_visibility="collapsed")
 with c2: 
-    # Centered Button with New Label
     if st.button("วิเคราะห์ ⚡", use_container_width=True): 
         set_symbol(sym_input); st.rerun()
 
@@ -415,15 +416,38 @@ if symbol:
             
             if info:
                 st.markdown("---")
-                c1, c2, c3 = st.columns(3)
+                # NEW: Business Summary
+                summary = info.get('longBusinessSummary', 'No description available.')
+                if HAS_TRANSLATOR:
+                    try: 
+                        translator = GoogleTranslator(source='auto', target='th')
+                        summary = translator.translate(summary[:2000]) # Translate first 2000 chars
+                    except: pass
+                
+                with st.expander(f"🏢 เกี่ยวกับ {symbol} (คลิกเพื่ออ่าน)"):
+                    st.write(summary)
+                
+                # NEW: Sector Comparison
+                sector = info.get('sector', 'Unknown')
                 pe = info.get('trailingPE')
-                c1.markdown(f"<div class='metric-box'><div class='metric-label'>P/E Ratio</div><div class='metric-val'>{pe if pe else 'N/A'}</div></div>", unsafe_allow_html=True)
-                eps = info.get('trailingEps')
-                c2.markdown(f"<div class='metric-box'><div class='metric-label'>EPS</div><div class='metric-val'>{eps if eps else 'N/A'}</div></div>", unsafe_allow_html=True)
-                peg = info.get('pegRatio')
-                c3.markdown(f"<div class='metric-box'><div class='metric-label'>PEG Ratio</div><div class='metric-val'>{peg if peg else 'N/A'}</div></div>", unsafe_allow_html=True)
+                
+                st.markdown(f"**Sector:** {sector}")
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    c1.markdown(f"<div class='metric-box'><div class='metric-label'>P/E Ratio</div><div class='metric-val'>{pe if pe else 'N/A'}</div></div>", unsafe_allow_html=True)
+                
+                with c2:
+                    if pe:
+                        avg_pe = get_sector_pe_benchmark(sector)
+                        diff = ((pe - avg_pe) / avg_pe) * 100
+                        status = "แพงกว่ากลุ่ม" if diff > 0 else "ถูกกว่ากลุ่ม"
+                        color = "#FF1744" if diff > 0 else "#00E676"
+                        st.markdown(f"<div class='metric-box' style='border-left-color:{color}'><div class='metric-label'>เทียบกลุ่ม ({avg_pe})</div><div class='metric-val' style='color:{color}; font-size:1.4rem'>{status} ({abs(diff):.1f}%)</div></div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<div class='metric-box'><div class='metric-label'>เทียบกลุ่ม</div><div class='metric-val' style='font-size:1.4rem'>N/A</div></div>", unsafe_allow_html=True)
 
-        # 3. AI News (With Sentiment Logic Restored)
+        # 3. AI News
         with tabs[2]:
             st.markdown("### 📰 Market Sentiment")
             if news:
@@ -529,22 +553,4 @@ if symbol:
                     
                     st.markdown(f"""
                     <div class='ai-insight-box' style='text-align:center; border:2px solid {ai_bk['color']};'>
-                        <div style='font-size:3rem; font-weight:900; color:#fff;'>{last:,.0f} <span style='font-size:1.5rem;'>THB</span></div>
-                        <div style='font-size:1.5rem; font-weight:bold; color:{ai_bk['color']}; text-transform:uppercase;'>{ai_bk['status']}</div>
-                        <p style='margin-top:10px; color:#ccc;'>🧠 AI: {ai_bk['insight']}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        st.markdown("#### 🤖 Intraday Levels")
-                        for l in ai_bk['levels']:
-                            cls = "sr-res" if l['type']=='res' else "sr-sup" if l['type']=='sup' else "sr-piv"
-                            st.markdown(f"<div class='sr-card {cls}'><b>{l['name']}</b><span>{l['price']:,.0f}</span></div>", unsafe_allow_html=True)
-                    with c2:
-                        st.markdown("#### 📐 Golden Zone")
-                        st.info(f"**Bottom:** {ai_bk['fib']['bot']:,.0f}\n\n**Top:** {ai_bk['fib']['top']:,.0f}")
-                else: st.error("ไม่พบข้อมูล")
-            else: st.warning("Connecting...")
-
-    else: st.error("❌ ไม่พบข้อมูลหุ้น/เหรียญนี้")
+                        <div style='
