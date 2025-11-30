@@ -122,6 +122,15 @@ st.markdown("""
             font-size: 1rem; line-height: 1.8; color: #ddd;
             margin-top: 20px;
         }
+        
+        /* Calculator Box */
+        .calc-box {
+            background: #161616; padding: 20px; border-radius: 15px;
+            border: 1px solid #333; margin-bottom: 15px;
+        }
+        div[data-testid="stNumberInput"] input {
+            background-color: #000 !important; color: #00E5FF !important; font-weight: bold;
+        }
 
         /* Custom Tabs */
         button[data-baseweb="tab"] { 
@@ -161,7 +170,6 @@ def get_stock_info(symbol):
 
 # --- AI Guru Analysis Logic ---
 def analyze_stock_guru(info, setup, symbol):
-    # 1. Get Data
     pe = info.get('trailingPE')
     peg = info.get('pegRatio')
     pb = info.get('priceToBook')
@@ -170,60 +178,34 @@ def analyze_stock_guru(info, setup, symbol):
     rev_growth = info.get('revenueGrowth', 0)
     sector = info.get('sector', 'General')
     
-    # 2. Valuation Score (Max 10)
     val_score = 0
     reasons_q = []
     reasons_v = []
 
-    if roe and roe > 0.15: 
-        reasons_q.append("✅ ROE สูง (>15%) บริหารทุนเก่ง")
-    elif roe and roe < 0:
-        reasons_q.append("❌ ROE ติดลบ ขาดทุน")
-        
-    if profit_margin and profit_margin > 0.10: 
-        reasons_q.append("✅ อัตรากำไรดี (>10%)")
+    if roe and roe > 0.15: reasons_q.append("✅ ROE สูง (>15%) บริหารทุนเก่ง")
+    elif roe and roe < 0: reasons_q.append("❌ ROE ติดลบ ขาดทุน")
+    if profit_margin and profit_margin > 0.10: reasons_q.append("✅ อัตรากำไรดี (>10%)")
+    if rev_growth and rev_growth > 0: reasons_q.append("✅ รายได้เติบโต")
+    else: reasons_q.append("⚠️ รายได้ไม่โต หรือหดตัว")
     
-    if rev_growth and rev_growth > 0: 
-        reasons_q.append("✅ รายได้เติบโต")
-    else:
-        reasons_q.append("⚠️ รายได้ไม่โต หรือหดตัว")
-    
-    # PE Logic
     if pe:
-        if pe < 15: 
-            val_score += 3 
-            reasons_v.append("✅ P/E ต่ำ (ถูก)")
-        elif pe < 25: 
-            val_score += 2 
-            reasons_v.append("⚖️ P/E เหมาะสม")
-        elif pe < 40: 
-            val_score += 1 
-            reasons_v.append("⚠️ P/E เริ่มสูง")
+        if pe < 15: val_score += 3; reasons_v.append("✅ P/E ต่ำ (ถูก)")
+        elif pe < 25: val_score += 2; reasons_v.append("⚖️ P/E เหมาะสม")
+        elif pe < 40: val_score += 1; reasons_v.append("⚠️ P/E เริ่มสูง")
     else: val_score += 1
     
-    # PEG Logic (Growth)
     if peg:
-        if peg < 1.0: 
-            val_score += 3 
-            reasons_v.append("✅ PEG < 1 (โตคุ้มราคา)")
-        elif peg < 2.0: 
-            val_score += 2 
-            reasons_v.append("⚖️ PEG ปกติ")
-        else: 
-            val_score += 0
-            reasons_v.append("❌ PEG สูง (โตไม่ทันราคา)")
+        if peg < 1.0: val_score += 3; reasons_v.append("✅ PEG < 1 (โตคุ้มราคา)")
+        elif peg < 2.0: val_score += 2; reasons_v.append("⚖️ PEG ปกติ")
+        else: val_score += 0; reasons_v.append("❌ PEG สูง (โตไม่ทันราคา)")
     
-    # PB Logic
     if pb and pb < 3: val_score += 2
-    
-    # ROE Bonus
     if roe and roe > 0.15: val_score += 2
 
     val_score = min(10, val_score)
 
-    # 3. Verdict Text Generation
     intro = f"จากการวิเคราะห์หุ้น **{symbol}** ในกลุ่มอุตสาหกรรม **{sector}** ด้วยระบบ AI Guru พบข้อมูลที่น่าสนใจดังนี้:\n\n"
-    
+    val_text = ""
     if pe:
         if pe < 15: val_text = f"ในมุมมองความคุ้มค่า (Valuation) หุ้นตัวนี้ถือว่า **'ราคาถูก (Undervalued)'** เมื่อเทียบกับกำไรที่ทำได้ โดยมีค่า P/E อยู่ที่ {pe:.2f} ซึ่งต่ำกว่าเกณฑ์มาตรฐาน "
         elif pe > 40: val_text = f"ในมุมมองความคุ้มค่า ราคาหุ้นปัจจุบันค่อนข้าง **'แพง (Overvalued)'** มีค่า P/E สูงถึง {pe:.2f} สะท้อนความคาดหวังของนักลงทุนที่สูงมาก "
@@ -236,10 +218,8 @@ def analyze_stock_guru(info, setup, symbol):
 
     tech_text = f"\n\n**คำแนะนำเชิงกลยุทธ์:** เมื่อประกอบกับกราฟเทคนิคที่เป็น **{setup['trend']}** "
     if setup['trend'] == "UPTREND (ขาขึ้น)":
-        if val_score >= 7: 
-            tech_text += "และพื้นฐานที่แข็งแกร่ง **'แนะนำให้ทยอยสะสม (Buy)'** ได้ทันที เพราะทั้งพื้นฐานและเทคนิคสนับสนุนกัน ราคาเป้าหมายยังมี Upside"
-        else:
-            tech_text += "แม้เทคนิคจะดูดี แต่พื้นฐานเริ่มตึงตัว **'แนะนำให้เก็งกำไรระยะสั้น (Trading)'** และวางจุด Stop Loss อย่างเคร่งครัด ไม่ควรถือยาว"
+        if val_score >= 7: tech_text += "และพื้นฐานที่แข็งแกร่ง **'แนะนำให้ทยอยสะสม (Buy)'** ได้ทันที เพราะทั้งพื้นฐานและเทคนิคสนับสนุนกัน ราคาเป้าหมายยังมี Upside"
+        else: tech_text += "แม้เทคนิคจะดูดี แต่พื้นฐานเริ่มตึงตัว **'แนะนำให้เก็งกำไรระยะสั้น (Trading)'** และวางจุด Stop Loss อย่างเคร่งครัด ไม่ควรถือยาว"
     elif setup['trend'] == "DOWNTREND (ขาลง)":
         if val_score >= 8:
             tech_text += "แม้พื้นฐานจะดีและราคาถูกมาก แต่กราฟยังเป็นขาลง **'แนะนำให้ Wait & See'** รอให้กราฟสร้างฐานหรือยืนเหนือเส้น EMA ก่อนค่อยเข้าซื้อ จะได้ของดีในราคาที่ปลอดภัยกว่า"
@@ -250,27 +230,14 @@ def analyze_stock_guru(info, setup, symbol):
 
     full_article = intro + val_text + qual_text + tech_text
 
-    # 4. Determine Status
     if val_score >= 8: status, color = "💎 Hidden Gem (ของดีราคาถูก)", "#00E676"
     elif val_score >= 5: status, color = "⚖️ Fair Value (เหมาะสม)", "#FFD600"
     else: status, color = "⚠️ High Risk / Expensive", "#FF1744"
 
-    return {
-        "verdict": status,
-        "color": color,
-        "val_score": val_score,
-        "article": full_article,
-        "reasons_q": reasons_q,
-        "reasons_v": reasons_v
-    }
+    return {"verdict": status, "color": color, "val_score": val_score, "article": full_article, "reasons_q": reasons_q, "reasons_v": reasons_v}
 
 def get_sector_pe_benchmark(sector):
-    benchmarks = {
-        'Technology': 25, 'Financial Services': 15, 'Healthcare': 22,
-        'Consumer Cyclical': 20, 'Industrials': 20, 'Energy': 12,
-        'Utilities': 18, 'Real Estate': 35, 'Basic Materials': 15,
-        'Communication Services': 20
-    }
+    benchmarks = {'Technology': 25, 'Financial Services': 15, 'Healthcare': 22, 'Consumer Cyclical': 20, 'Industrials': 20, 'Energy': 12}
     return benchmarks.get(sector, 20) 
 
 @st.cache_data(ttl=15)
@@ -506,7 +473,7 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
 
-        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R Dynamic", "🧠 AI Guru", "🇹🇭 Bitkub AI"])
+        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R", "🧠 Guru", "🇹🇭 Bitkub", "🧮 Calc"])
 
         # 1. Chart
         with tabs[0]:
@@ -644,19 +611,19 @@ if symbol:
                 
                 c1, c2 = st.columns(2)
                 with c1:
-                    st.markdown("#### 🧱 Pivots")
+                    st.markdown("#### 🧱 แนวรับ-ต้านคงที่ (Static S/R)")
                     for k, v in pivots.items():
                         cls = "sr-res" if "R" in k else "sr-sup" if "S" in k else "sr-piv"
                         st.markdown(f"<div class='sr-card {cls}'><b>{k}</b><span>{v:,.2f}</span></div>", unsafe_allow_html=True)
                 with c2:
-                    st.markdown("#### 🌊 Dynamic")
+                    st.markdown("#### 🌊 แนวรับเคลื่อนที่ (Dynamic / EMA)")
                     for k, v in dynamic.items():
                         if k!="Current":
                             dist = ((curr-v)/v)*100
                             cl = "#00E676" if curr > v else "#FF1744"
                             st.markdown(f"<div class='sr-card' style='border-left:4px solid {cl}; background:rgba({255 if cl=='#FF1744' else 0}, {230 if cl=='#00E676' else 23}, {118 if cl=='#00E676' else 68}, 0.1);'><span>{k}</span><div style='text-align:right;'>{v:,.2f}<br><small style='color:{cl}'>{dist:+.2f}%</small></div></div>", unsafe_allow_html=True)
 
-        # 7. AI Guru (Final Fixed)
+        # 7. AI Guru (New)
         with tabs[6]:
             st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
             if info:
@@ -723,5 +690,43 @@ if symbol:
                             """)
                 else: st.error("ไม่พบข้อมูล")
             else: st.warning("Connecting...")
+        
+        # 9. Calculator (Money Management) - New!
+        with tabs[8]:
+            st.markdown("### 🧮 Money Management (คำนวณไม้เทรด)")
+            
+            col_calc1, col_calc2 = st.columns(2)
+            with col_calc1:
+                balance = st.number_input("💰 เงินทุนในพอร์ต (Portfolio Size)", value=100000.0, step=1000.0)
+                risk_pct = st.number_input("⚠️ ความเสี่ยงที่รับได้ (%)", value=1.0, step=0.1, max_value=100.0)
+            
+            with col_calc2:
+                def_entry = setup['entry'] if setup else curr
+                def_sl = setup['sl'] if setup else curr*0.95
+                
+                entry_price = st.number_input("🎯 ราคาเข้าซื้อ (Entry Price)", value=def_entry)
+                stop_loss = st.number_input("🛑 จุดตัดขาดทุน (Stop Loss)", value=def_sl)
+
+            if st.button("🧮 คำนวณเดี๋ยวนี้ (Calculate)", use_container_width=True):
+                if entry_price > 0 and stop_loss > 0:
+                    risk_per_share = abs(entry_price - stop_loss)
+                    risk_amount = balance * (risk_pct / 100)
+                    
+                    if risk_per_share > 0:
+                        position_size = risk_amount / risk_per_share
+                        total_cost = position_size * entry_price
+                        
+                        # Display Result
+                        st.markdown("---")
+                        c1, c2, c3 = st.columns(3)
+                        c1.markdown(f"<div class='metric-box' style='border-left-color:#00E5FF'><div class='metric-label'>จำนวนหุ้น/เหรียญ</div><div class='metric-val'>{position_size:,.2f}</div></div>", unsafe_allow_html=True)
+                        c2.markdown(f"<div class='metric-box' style='border-left-color:#FFD600'><div class='metric-label'>เงินลงทุน (Cost)</div><div class='metric-val'>{total_cost:,.2f}</div></div>", unsafe_allow_html=True)
+                        c3.markdown(f"<div class='metric-box' style='border-left-color:#FF1744'><div class='metric-label'>ความเสี่ยง (Risk)</div><div class='metric-val'>{risk_amount:,.2f}</div></div>", unsafe_allow_html=True)
+                        
+                        st.info(f"💡 แผนการเทรด: คุณจะซื้อจำนวน **{position_size:,.2f} หน่วย** ใช้เงิน **{total_cost:,.2f} บาท** \n\nหากราคาชน Stop Loss คุณจะขาดทุนเพียง **{risk_amount:,.2f} บาท** ({risk_pct}% ของพอร์ต) ซึ่งอยู่ในแผนที่วางไว้")
+                    else:
+                        st.error("⚠️ ราคาเข้าซื้อต้องไม่เท่ากับราคา Stop Loss")
+                else:
+                    st.error("⚠️ กรุณากรอกราคาให้ถูกต้อง")
 
     else: st.error("❌ ไม่พบข้อมูลหุ้น/เหรียญนี้")
