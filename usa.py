@@ -725,6 +725,7 @@ if symbol:
             strat_levels, step_size = calculate_strategic_supports(curr)
             gap_pct = ((curr - strat_levels[0]['price']) / curr) * 100
             
+            # FIXED HEADER
             st.markdown(f"""
 <div style="background:rgba(0, 229, 255, 0.1); padding:15px; border-radius:10px; border-left:4px solid #00E5FF; margin-bottom:20px;">
 <h4 style="margin:0; color:#00E5FF;">💡 AI Strategy Advisor</h4>
@@ -739,6 +740,7 @@ if symbol:
                 l_gap = ((curr - lvl['price']) / curr) * 100
                 is_near = "ใกล้ถึงแล้ว! 🚨" if l_gap < 1.0 else f"อีก {l_gap:.2f}%"
                 
+                # FIXED CARD
                 html_content = f"""
 <div style="background: linear-gradient(145deg, #1a1a1a, #111); border: 1px solid #333; border-left: 6px solid {lvl['color']}; border-radius: 15px; padding: 20px; margin-bottom: 15px; position: relative; overflow: hidden;">
 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -782,40 +784,47 @@ if symbol:
                             cl = "#00E676" if curr > v else "#FF1744"
                             st.markdown(f"<div class='sr-card' style='border-left:4px solid {cl}; background:rgba({255 if cl=='#FF1744' else 0}, {230 if cl=='#00E676' else 23}, {118 if cl=='#00E676' else 68}, 0.1);'><span>{k}</span><div style='text-align:right;'>{v:,.2f}<br><small style='color:{cl}'>{dist:+.2f}%</small></div></div>", unsafe_allow_html=True)
 
-        # 7. AI Guru (UPDATED: Added Why Buy/Avoid)
+        # 7. AI Guru (FIXED INDENTATION)
         with tabs[6]:
             st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
             if info:
                 guru = analyze_stock_guru(info, setup, symbol)
-                # คำนวณเหตุผลการเข้าซื้อ (New Function)
                 strat_lvls, _ = calculate_strategic_supports(curr)
                 why_title, why_desc, why_color, why_icon = generate_ai_trade_reasoning(curr, setup, strat_lvls, guru['val_score'])
 
-                st.markdown(f"""
-                <div class='ai-insight-box' style='border:2px solid {guru['color']}; text-align:center; margin-bottom:20px;'>
-                    <h1 style='color:{guru['color']}; font-size:3rem; margin:0;'>{guru['verdict']}</h1>
-                    <div style="margin:20px 0; background:#333; border-radius:10px; height:10px; width:100%;">
-                        <div style="width:{guru['val_score']*10}%; background:{guru['color']}; height:100%; border-radius:10px;"></div>
-                    </div>
-                    <p style='font-size:1.1rem; color:#ccc;'>Valuation Score: {guru['val_score']}/10</p>
-                </div>
+                # FIXED: HTML Strings now use explicit st.markdown() calls or strict formatting to avoid markdown code blocks
                 
-                <!-- NEW: AI ACTION RATIONALE -->
-                <div class='ai-insight-box' style='border-color:{why_color}; background:rgba(0,0,0,0.3); margin-bottom:20px;'>
-                    <div style="display:flex; gap:15px; align-items:flex-start;">
-                        <span style="font-size:2.5rem;">{why_icon}</span>
-                        <div>
-                            <h3 style="margin:0; color:{why_color};">{why_title}</h3>
-                            <p style="margin:5px 0 0 0; font-size:1.1rem; color:#ddd; line-height:1.5;">{why_desc}</p>
-                        </div>
-                    </div>
-                </div>
+                # 1. Valuation Score Box
+                st.markdown(f"""
+<div class='ai-insight-box' style='border:2px solid {guru['color']}; text-align:center; margin-bottom:20px;'>
+<h1 style='color:{guru['color']}; font-size:3rem; margin:0;'>{guru['verdict']}</h1>
+<div style="margin:20px 0; background:#333; border-radius:10px; height:10px; width:100%;">
+<div style="width:{guru['val_score']*10}%; background:{guru['color']}; height:100%; border-radius:10px;"></div>
+</div>
+<p style='font-size:1.1rem; color:#ccc;'>Valuation Score: {guru['val_score']}/10</p>
+</div>
+""", unsafe_allow_html=True)
+                
+                # 2. AI Action Rationale
+                st.markdown(f"""
+<div class='ai-insight-box' style='border-color:{why_color}; background:rgba(0,0,0,0.3); margin-bottom:20px;'>
+<div style="display:flex; gap:15px; align-items:flex-start;">
+<span style="font-size:2.5rem;">{why_icon}</span>
+<div>
+<h3 style="margin:0; color:{why_color};">{why_title}</h3>
+<p style="margin:5px 0 0 0; font-size:1.1rem; color:#ddd; line-height:1.5;">{why_desc}</p>
+</div>
+</div>
+</div>
+""", unsafe_allow_html=True)
 
-                <div class='ai-article'>
-                    <h4 style='margin-top:0; color:#fff;'>📝 บทวิเคราะห์โดย AI (AI Analyst Report)</h4>
-                    {guru['article']}
-                </div>
-                """, unsafe_allow_html=True)
+                # 3. AI Article
+                st.markdown(f"""
+<div class='ai-article'>
+<h4 style='margin-top:0; color:#fff;'>📝 บทวิเคราะห์โดย AI (AI Analyst Report)</h4>
+{guru['article']}
+</div>
+""", unsafe_allow_html=True)
                 
                 c1, c2 = st.columns(2)
                 with c1:
@@ -828,7 +837,7 @@ if symbol:
             else:
                 st.info("⚠️ ไม่สามารถวิเคราะห์ได้ (ไม่มีข้อมูลพื้นฐาน/งบการเงิน) สำหรับสินทรัพย์นี้")
 
-        # 8. Bitkub AI (UPDATED: Added Strategic Supports)
+        # 8. Bitkub AI (UPDATED: Added Strategy Advisor Header)
         with tabs[7]:
             bk_sel = st.radio("เลือกเหรียญ (THB)", ["BTC", "ETH"], horizontal=True)
             if bk_data:
@@ -847,10 +856,21 @@ if symbol:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # --- NEW: Strategic Support Logic for Bitkub ---
                     st.markdown("#### 🧠 AI Strategic Support (แผนการรับของ - THB)")
-                    # คำนวณ Strategic Level จากราคา Bitkub โดยตรง
+                    
+                    # --- NEW: AI Strategy Advisor Header for Bitkub ---
                     bk_strat_levels, bk_step = calculate_strategic_supports(last)
+                    bk_gap_pct = ((last - bk_strat_levels[0]['price']) / last) * 100
+                    
+                    st.markdown(f"""
+<div style="background:rgba(0, 229, 255, 0.1); padding:15px; border-radius:10px; border-left:4px solid #00E5FF; margin-bottom:20px;">
+<h4 style="margin:0; color:#00E5FF;">💡 AI Strategy Advisor (THB)</h4>
+<p style="margin:5px 0 0 0; color:#ddd;">
+ราคาปัจจุบันห่างจากแนวรับแรก <b>{bk_gap_pct:.2f}%</b> (Step: {bk_step:,.0f})<br>
+แนะนำให้แบ่งไม้ซื้อตามระดับแนวรับเพื่อบริหารต้นทุน
+</p>
+</div>
+""", unsafe_allow_html=True)
                     
                     for lvl in bk_strat_levels:
                         l_gap = ((last - lvl['price']) / last) * 100
@@ -858,16 +878,16 @@ if symbol:
                         
                         bk_html_card = f"""
 <div style="background: linear-gradient(145deg, #1a1a1a, #111); border: 1px solid #333; border-left: 6px solid {lvl['color']}; border-radius: 12px; padding: 15px; margin-bottom: 10px;">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div>
-            <div style="font-size:1rem; font-weight:bold; color:{lvl['color']};">{lvl['name']}</div>
-            <div style="font-size:1.6rem; font-weight:900; color:#fff;">{lvl['price']:,.0f}</div>
-        </div>
-        <div style="text-align:right;">
-             <span style="font-size:0.8rem; color:#888;">{is_near}</span><br>
-             <span style="background:{lvl['color']}20; color:{lvl['color']}; padding:3px 10px; border-radius:10px; font-weight:bold; font-size:0.8rem;">{lvl['alloc']}</span>
-        </div>
-    </div>
+<div style="display:flex; justify-content:space-between; align-items:center;">
+<div>
+<div style="font-size:1rem; font-weight:bold; color:{lvl['color']};">{lvl['name']}</div>
+<div style="font-size:1.6rem; font-weight:900; color:#fff;">{lvl['price']:,.0f}</div>
+</div>
+<div style="text-align:right;">
+<span style="font-size:0.8rem; color:#888;">{is_near}</span><br>
+<span style="background:{lvl['color']}20; color:{lvl['color']}; padding:3px 10px; border-radius:10px; font-weight:bold; font-size:0.8rem;">{lvl['alloc']}</span>
+</div>
+</div>
 </div>
 """
                         st.markdown(bk_html_card, unsafe_allow_html=True)
