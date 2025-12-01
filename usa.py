@@ -375,32 +375,37 @@ def analyze_bitkub_static_guru(last, static_levels):
     if last >= r1:
         verdict = "🚀 BREAKOUT (ทะลุต้าน)"
         color = "#00E676"
-        desc = f"ราคายืนเหนือแนวต้านจิตวิทยา {r1:,.0f} ได้อย่างแข็งแกร่ง"
+        desc = f"ราคายืนเหนือแนวต้านจิตวิทยา {r1:,.2f} ได้อย่างแข็งแกร่ง"
         strategy = "Follow Trend: ถือต่อหรือซื้อเพิ่มเมื่อราคายืนเหนือแนวนี้ได้มั่นคง"
     elif last <= s1:
         verdict = "🩸 BREAKDOWN (หลุดแนวรับ)"
         color = "#FF1744"
-        desc = f"ราคาหลุดต่ำกว่าแนวรับจิตวิทยา {s1:,.0f} แนวโน้มดูไม่ดี"
+        desc = f"ราคาหลุดต่ำกว่าแนวรับจิตวิทยา {s1:,.2f} แนวโน้มดูไม่ดี"
         strategy = "Wait & See: ควรรอให้ราคากลับมายืนเหนือแนวรับ หรือไปรอที่แนวรับถัดไป"
     else:
         if dist_r1 < dist_s1:
             verdict = "⚔️ TESTING RESISTANCE (ทดสอบต้าน)"
             color = "#FFD600"
-            desc = f"ราคากำลังจ่อแนวต้านสำคัญ {r1:,.0f}"
+            desc = f"ราคากำลังจ่อแนวต้านสำคัญ {r1:,.2f}"
             strategy = "Watch Out: ระวังแรงขายทำกำไร หากไม่ผ่านให้ขายทำกำไรระยะสั้น"
         else:
             verdict = "🛡️ DEFENDING SUPPORT (ยันแนวรับ)"
             color = "#00E5FF"
-            desc = f"ราคาลงมาทดสอบแนวรับ {s1:,.0f} และยังมีแรงซื้อพยุง"
+            desc = f"ราคาลงมาทดสอบแนวรับ {s1:,.2f} และยังมีแรงซื้อพยุง"
             strategy = "Buy on Support: เข้าซื้อสะสมที่แนวรับ โดยวาง Stop Loss หากหลุดแนวนี้"
     
     return verdict, color, desc, strategy
 
 def calculate_static_round_numbers(price):
+    # ปรับ Logic ให้รองรับทั้งหุ้นเล็กและหุ้นใหญ่
     if price > 2000000: step = 50000
     elif price > 100000: step = 10000
-    elif price > 50000: step = 1000
-    else: step = 100
+    elif price > 10000: step = 1000
+    elif price > 1000: step = 100
+    elif price > 100: step = 10     
+    elif price > 10: step = 1       
+    elif price > 1: step = 0.1
+    else: step = 0.01
     
     base = (price // step) * step
     return {
@@ -637,29 +642,76 @@ if symbol:
                 </div>
                 """, unsafe_allow_html=True)
 
-        # 6. S/R Dynamic
+        # 6. S/R Dynamic (UPDATED)
         with tabs[5]:
+            # --- ส่วนที่เพิ่มใหม่: Static Psychological & AI Verdict ---
+            st.markdown("### 🧠 AI Psychology Analysis")
+            
+            # คำนวณแนวรับต้านจิตวิทยา
+            static_lvls = calculate_static_round_numbers(curr)
+            # เรียกใช้ Logic วิเคราะห์ (ใช้ Logic เดียวกับ Bitkub)
+            s_verd, s_col, s_desc, s_strat = analyze_bitkub_static_guru(curr, static_lvls)
+            
+            # เลือกไอคอนให้ตรงกับสถานะ
+            if "DEFENDING" in s_verd: s_icon = "🛡️"
+            elif "BREAKOUT" in s_verd: s_icon = "🚀"
+            elif "BREAKDOWN" in s_verd: s_icon = "🩸"
+            else: s_icon = "⚔️"
+
+            # แสดงผล Insight Box (ตามภาพที่ต้องการ)
+            st.markdown(f"""
+            <div class='ai-insight-box' style='border-color:{s_col}; margin-bottom:20px; box-shadow: 0 0 20px {s_col}20;'>
+                <div style="display:flex; align-items:center; gap:15px; margin-bottom:15px;">
+                    <span style="font-size:3rem;">{s_icon}</span>
+                    <div>
+                        <h3 style="margin:0; color:{s_col}; font-size:1.5rem; text-transform:uppercase;">{s_verd}</h3>
+                        <p style="color:#ddd; margin:5px 0 0 0; font-size:1.1rem;">{s_desc}</p>
+                    </div>
+                </div>
+                <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:12px; border-left:4px solid {s_col};">
+                    <b style="color:#00E5FF; font-size:1.05rem;">💡 Strategy:</b> <span style="color:#eee; line-height:1.6;">{s_strat}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # แสดงผล Grid แนวรับต้านจิตวิทยา (Static Levels)
+            st.markdown("#### 🧱 Static Psychological Levels (แนวรับต้านจิตวิทยา)")
+            col_s1, col_s2 = st.columns(2)
+            with col_s1:
+                    st.markdown(f"<div class='static-card'><span class='static-label'>Res 2</span><span class='static-val' style='color:#FF1744'>{static_lvls['Res 2']:,.2f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='static-card'><span class='static-label'>Res 1</span><span class='static-val' style='color:#FF5252'>{static_lvls['Res 1']:,.2f}</span></div>", unsafe_allow_html=True)
+            with col_s2:
+                    st.markdown(f"<div class='static-card'><span class='static-label'>Sup 1</span><span class='static-val' style='color:#69F0AE'>{static_lvls['Sup 1']:,.2f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='static-card'><span class='static-label'>Sup 2</span><span class='static-val' style='color:#00E676'>{static_lvls['Sup 2']:,.2f}</span></div>", unsafe_allow_html=True)
+            
+            st.markdown("---")
+
+            # --- ส่วนเดิม: Pivot Points & Dynamic Levels ---
             pivots = calculate_pivot_points(df)
             dynamic = calculate_dynamic_levels(df)
             
             if pivots and dynamic:
                 msg, col, icon, act = generate_dynamic_insight(curr, pivots, dynamic)
+                
+                # Dynamic Insight Box (ย่อขนาดลงเล็กน้อยเพื่อให้เด่นน้อยกว่า Static ด้านบน)
                 st.markdown(f"""
-                <div class='ai-insight-box' style='border-color:{col}; box-shadow:0 0 15px {col}40; margin-bottom:25px;'>
-                    <div class='ai-insight-icon'>{icon}</div>
-                    <h3 style='margin:0; color:{col};'>{msg}</h3>
-                    <p style='font-size:1.1rem; color:#ccc; margin-top:5px;'>{act}</p>
+                <div class='ai-insight-box' style='border-color:{col}; border-width:1px; margin-bottom:25px;'>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:1.5rem;">{icon}</span>
+                        <h3 style='margin:0; color:{col}; font-size:1.2rem;'>Dynamic Trend: {msg}</h3>
+                    </div>
+                    <p style='font-size:1rem; color:#aaa; margin-top:5px; margin-left:35px;'>{act}</p>
                 </div>
                 """, unsafe_allow_html=True)
                 
                 c1, c2 = st.columns(2)
                 with c1:
-                    st.markdown("#### 🧱 แนวรับ-ต้านคงที่ (Static S/R)")
+                    st.markdown("#### 🎯 Classic Pivot Points")
                     for k, v in pivots.items():
                         cls = "sr-res" if "R" in k else "sr-sup" if "S" in k else "sr-piv"
                         st.markdown(f"<div class='sr-card {cls}'><b>{k}</b><span>{v:,.2f}</span></div>", unsafe_allow_html=True)
                 with c2:
-                    st.markdown("#### 🌊 แนวรับเคลื่อนที่ (Dynamic / EMA)")
+                    st.markdown("#### 🌊 Dynamic Levels (EMA/BB)")
                     for k, v in dynamic.items():
                         if k!="Current":
                             dist = ((curr-v)/v)*100
