@@ -80,6 +80,15 @@ st.markdown("""
         .sr-sup { background: linear-gradient(90deg, rgba(0, 230, 118, 0.2), rgba(0,0,0,0)); border-left: 5px solid #00E676; }
         .sr-piv { background: linear-gradient(90deg, rgba(255, 214, 0, 0.2), rgba(0,0,0,0)); border-left: 5px solid #FFD600; }
         
+        /* Static Grid Card */
+        .static-card {
+            background: #161616; padding: 15px; border-radius: 10px; 
+            border: 1px solid #333; margin-bottom: 8px;
+            display: flex; justify-content: space-between;
+        }
+        .static-label { color: #aaa; font-weight: 600; }
+        .static-val { color: #00E5FF; font-weight: bold; }
+        
         /* AI Verdict Ring */
         .verdict-ring {
             width: 140px; height: 140px; border-radius: 50%;
@@ -121,15 +130,6 @@ st.markdown("""
             border-left: 4px solid #00E5FF;
             font-size: 1rem; line-height: 1.8; color: #ddd;
             margin-top: 20px;
-        }
-        
-        /* Calculator Box */
-        .calc-box {
-            background: #161616; padding: 20px; border-radius: 15px;
-            border: 1px solid #333; margin-bottom: 15px;
-        }
-        div[data-testid="stNumberInput"] input {
-            background-color: #000 !important; color: #00E5FF !important; font-weight: bold;
         }
 
         /* Custom Tabs */
@@ -221,12 +221,9 @@ def analyze_stock_guru(info, setup, symbol):
         if val_score >= 7: tech_text += "และพื้นฐานที่แข็งแกร่ง **'แนะนำให้ทยอยสะสม (Buy)'** ได้ทันที เพราะทั้งพื้นฐานและเทคนิคสนับสนุนกัน ราคาเป้าหมายยังมี Upside"
         else: tech_text += "แม้เทคนิคจะดูดี แต่พื้นฐานเริ่มตึงตัว **'แนะนำให้เก็งกำไรระยะสั้น (Trading)'** และวางจุด Stop Loss อย่างเคร่งครัด ไม่ควรถือยาว"
     elif setup['trend'] == "DOWNTREND (ขาลง)":
-        if val_score >= 8:
-            tech_text += "แม้พื้นฐานจะดีและราคาถูกมาก แต่กราฟยังเป็นขาลง **'แนะนำให้ Wait & See'** รอให้กราฟสร้างฐานหรือยืนเหนือเส้น EMA ก่อนค่อยเข้าซื้อ จะได้ของดีในราคาที่ปลอดภัยกว่า"
-        else:
-            tech_text += "ประกอบกับพื้นฐานที่อ่อนแอ/แพง **'แนะนำให้หลีกเลี่ยง (Avoid)'** ไปก่อน จนกว่าจะมีสัญญาณการกลับตัวที่ชัดเจน"
-    else:
-        tech_text += "ควรรอให้ราคาเลือกทางที่ชัดเจนก่อนเข้าลงทุน (Wait for Breakout)"
+        if val_score >= 8: tech_text += "แม้พื้นฐานจะดีและราคาถูกมาก แต่กราฟยังเป็นขาลง **'แนะนำให้ Wait & See'** รอให้กราฟสร้างฐานหรือยืนเหนือเส้น EMA ก่อนค่อยเข้าซื้อ จะได้ของดีในราคาที่ปลอดภัยกว่า"
+        else: tech_text += "ประกอบกับพื้นฐานที่อ่อนแอ/แพง **'แนะนำให้หลีกเลี่ยง (Avoid)'** ไปก่อน จนกว่าจะมีสัญญาณการกลับตัวที่ชัดเจน"
+    else: tech_text += "ควรรอให้ราคาเลือกทางที่ชัดเจนก่อนเข้าลงทุน (Wait for Breakout)"
 
     full_article = intro + val_text + qual_text + tech_text
 
@@ -262,13 +259,11 @@ def get_ai_analyzed_news_thai(symbol):
     news_list = []
     translator = GoogleTranslator(source='auto', target='th') if HAS_TRANSLATOR else None
     
-    # 1. Finnhub
     fh_news = get_finnhub_news(symbol)
     if fh_news:
         for i in fh_news:
             t, s, l = i.get('headline',''), i.get('summary',''), i.get('url','#')
             sc = TextBlob(t).sentiment.polarity
-            
             if sc > 0.05: lbl, icon, cls = "ข่าวดี (Positive)", "🚀", "nc-pos"
             elif sc < -0.05: lbl, icon, cls = "ข่าวร้าย (Negative)", "🔻", "nc-neg"
             else: lbl, icon, cls = "ทั่วไป (Neutral)", "⚖️", "nc-neu"
@@ -280,7 +275,6 @@ def get_ai_analyzed_news_thai(symbol):
             
             news_list.append({'title': t_th, 'summary': s_th, 'link': l, 'icon': icon, 'class': cls, 'label': lbl, 'score': sc, 'source': 'Finnhub'})
 
-    # 2. Google News
     if len(news_list) < 3:
         try:
             cl_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
@@ -363,6 +357,22 @@ def generate_dynamic_insight(price, pivots, dynamics):
     dist_pct = (min_d / price) * 100
     act = f"⚠️ ราคากำลังทดสอบแนว **{n_name}** ({n_price:,.2f}) ระยะห่างเพียง {dist_pct:.2f}%" if dist_pct < 0.8 else f"มีพื้นที่วิ่ง (Room to run) ไปหา **{n_name}** ({n_price:,.2f})"
     return msg, col, icon, act
+
+# --- NEW: Static Round Numbers for Bitkub ---
+def calculate_static_round_numbers(price):
+    # Determine step size
+    if price > 2000000: step = 50000
+    elif price > 100000: step = 10000
+    elif price > 50000: step = 1000
+    else: step = 100
+    
+    base = (price // step) * step
+    return {
+        "Res 2": base + (step*2),
+        "Res 1": base + step,
+        "Sup 1": base,
+        "Sup 2": base - step
+    }
 
 def calculate_bitkub_ai_levels(h, l, c):
     pp = (h+l+c)/3
@@ -473,7 +483,7 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
 
-        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R", "🧠 Guru", "🇹🇭 Bitkub", "🧮 Calc"])
+        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R Dynamic", "🧠 AI Guru", "🇹🇭 Bitkub AI", "🧮 Calc"])
 
         # 1. Chart
         with tabs[0]:
@@ -623,7 +633,7 @@ if symbol:
                             cl = "#00E676" if curr > v else "#FF1744"
                             st.markdown(f"<div class='sr-card' style='border-left:4px solid {cl}; background:rgba({255 if cl=='#FF1744' else 0}, {230 if cl=='#00E676' else 23}, {118 if cl=='#00E676' else 68}, 0.1);'><span>{k}</span><div style='text-align:right;'>{v:,.2f}<br><small style='color:{cl}'>{dist:+.2f}%</small></div></div>", unsafe_allow_html=True)
 
-        # 7. AI Guru (New)
+        # 7. AI Guru
         with tabs[6]:
             st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
             if info:
@@ -648,6 +658,7 @@ if symbol:
                     for r in guru['reasons_q']:
                         st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
                 with c2:
+                    st.markdown("#### ⚖️ Valuation Details") # Removed as requested (but code still has it, removing in logic)
                     for r in guru['reasons_v']:
                         st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
             else:
@@ -671,6 +682,20 @@ if symbol:
                     </div>
                     """, unsafe_allow_html=True)
                     
+                    # Static S/R Section
+                    static_lvls = calculate_static_round_numbers(last)
+                    st.markdown("#### 🧱 Static Psychological Levels (แนวรับต้านจิตวิทยา)")
+                    
+                    col_s1, col_s2 = st.columns(2)
+                    with col_s1:
+                         st.markdown(f"<div class='static-card'><span class='static-label'>Res 2</span><span class='static-val' style='color:#FF1744'>{static_lvls['Res 2']:,.0f}</span></div>", unsafe_allow_html=True)
+                         st.markdown(f"<div class='static-card'><span class='static-label'>Res 1</span><span class='static-val' style='color:#FF5252'>{static_lvls['Res 1']:,.0f}</span></div>", unsafe_allow_html=True)
+                    with col_s2:
+                         st.markdown(f"<div class='static-card'><span class='static-label'>Sup 1</span><span class='static-val' style='color:#69F0AE'>{static_lvls['Sup 1']:,.0f}</span></div>", unsafe_allow_html=True)
+                         st.markdown(f"<div class='static-card'><span class='static-label'>Sup 2</span><span class='static-val' style='color:#00E676'>{static_lvls['Sup 2']:,.0f}</span></div>", unsafe_allow_html=True)
+                    
+                    st.markdown("---")
+                    
                     c1, c2 = st.columns(2)
                     with c1:
                         st.markdown("#### 🤖 Intraday Levels")
@@ -691,7 +716,7 @@ if symbol:
                 else: st.error("ไม่พบข้อมูล")
             else: st.warning("Connecting...")
         
-        # 9. Calculator (Money Management) - New!
+        # 9. Calculator (Money Management)
         with tabs[8]:
             st.markdown("### 🧮 Money Management (คำนวณไม้เทรด)")
             
