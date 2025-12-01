@@ -221,9 +221,12 @@ def analyze_stock_guru(info, setup, symbol):
         if val_score >= 7: tech_text += "และพื้นฐานที่แข็งแกร่ง **'แนะนำให้ทยอยสะสม (Buy)'** ได้ทันที เพราะทั้งพื้นฐานและเทคนิคสนับสนุนกัน ราคาเป้าหมายยังมี Upside"
         else: tech_text += "แม้เทคนิคจะดูดี แต่พื้นฐานเริ่มตึงตัว **'แนะนำให้เก็งกำไรระยะสั้น (Trading)'** และวางจุด Stop Loss อย่างเคร่งครัด ไม่ควรถือยาว"
     elif setup['trend'] == "DOWNTREND (ขาลง)":
-        if val_score >= 8: tech_text += "แม้พื้นฐานจะดีและราคาถูกมาก แต่กราฟยังเป็นขาลง **'แนะนำให้ Wait & See'** รอให้กราฟสร้างฐานหรือยืนเหนือเส้น EMA ก่อนค่อยเข้าซื้อ จะได้ของดีในราคาที่ปลอดภัยกว่า"
-        else: tech_text += "ประกอบกับพื้นฐานที่อ่อนแอ/แพง **'แนะนำให้หลีกเลี่ยง (Avoid)'** ไปก่อน จนกว่าจะมีสัญญาณการกลับตัวที่ชัดเจน"
-    else: tech_text += "ควรรอให้ราคาเลือกทางที่ชัดเจนก่อนเข้าลงทุน (Wait for Breakout)"
+        if val_score >= 8:
+            tech_text += "แม้พื้นฐานจะดีและราคาถูกมาก แต่กราฟยังเป็นขาลง **'แนะนำให้ Wait & See'** รอให้กราฟสร้างฐานหรือยืนเหนือเส้น EMA ก่อนค่อยเข้าซื้อ จะได้ของดีในราคาที่ปลอดภัยกว่า"
+        else:
+            tech_text += "ประกอบกับพื้นฐานที่อ่อนแอ/แพง **'แนะนำให้หลีกเลี่ยง (Avoid)'** ไปก่อน จนกว่าจะมีสัญญาณการกลับตัวที่ชัดเจน"
+    else:
+        tech_text += "ควรรอให้ราคาเลือกทางที่ชัดเจนก่อนเข้าลงทุน (Wait for Breakout)"
 
     full_article = intro + val_text + qual_text + tech_text
 
@@ -259,11 +262,13 @@ def get_ai_analyzed_news_thai(symbol):
     news_list = []
     translator = GoogleTranslator(source='auto', target='th') if HAS_TRANSLATOR else None
     
+    # 1. Finnhub
     fh_news = get_finnhub_news(symbol)
     if fh_news:
         for i in fh_news:
             t, s, l = i.get('headline',''), i.get('summary',''), i.get('url','#')
             sc = TextBlob(t).sentiment.polarity
+            
             if sc > 0.05: lbl, icon, cls = "ข่าวดี (Positive)", "🚀", "nc-pos"
             elif sc < -0.05: lbl, icon, cls = "ข่าวร้าย (Negative)", "🔻", "nc-neg"
             else: lbl, icon, cls = "ทั่วไป (Neutral)", "⚖️", "nc-neu"
@@ -275,6 +280,7 @@ def get_ai_analyzed_news_thai(symbol):
             
             news_list.append({'title': t_th, 'summary': s_th, 'link': l, 'icon': icon, 'class': cls, 'label': lbl, 'score': sc, 'source': 'Finnhub'})
 
+    # 2. Google News
     if len(news_list) < 3:
         try:
             cl_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
@@ -358,9 +364,39 @@ def generate_dynamic_insight(price, pivots, dynamics):
     act = f"⚠️ ราคากำลังทดสอบแนว **{n_name}** ({n_price:,.2f}) ระยะห่างเพียง {dist_pct:.2f}%" if dist_pct < 0.8 else f"มีพื้นที่วิ่ง (Room to run) ไปหา **{n_name}** ({n_price:,.2f})"
     return msg, col, icon, act
 
-# --- NEW: Static Round Numbers for Bitkub ---
+# --- NEW: Static Analyst Logic ---
+def analyze_bitkub_static_guru(last, static_levels):
+    r1 = static_levels['Res 1']
+    s1 = static_levels['Sup 1']
+    
+    dist_r1 = abs(last - r1)
+    dist_s1 = abs(last - s1)
+    
+    if last >= r1:
+        verdict = "🚀 BREAKOUT (ทะลุต้าน)"
+        color = "#00E676"
+        desc = f"ราคายืนเหนือแนวต้านจิตวิทยา {r1:,.0f} ได้อย่างแข็งแกร่ง"
+        strategy = "Follow Trend: ถือต่อหรือซื้อเพิ่มเมื่อราคายืนเหนือแนวนี้ได้มั่นคง"
+    elif last <= s1:
+        verdict = "🩸 BREAKDOWN (หลุดแนวรับ)"
+        color = "#FF1744"
+        desc = f"ราคาหลุดต่ำกว่าแนวรับจิตวิทยา {s1:,.0f} แนวโน้มดูไม่ดี"
+        strategy = "Wait & See: ควรรอให้ราคากลับมายืนเหนือแนวรับ หรือไปรอที่แนวรับถัดไป"
+    else:
+        if dist_r1 < dist_s1:
+            verdict = "⚔️ TESTING RESISTANCE (ทดสอบต้าน)"
+            color = "#FFD600"
+            desc = f"ราคากำลังจ่อแนวต้านสำคัญ {r1:,.0f}"
+            strategy = "Watch Out: ระวังแรงขายทำกำไร หากไม่ผ่านให้ขายทำกำไรระยะสั้น"
+        else:
+            verdict = "🛡️ DEFENDING SUPPORT (ยันแนวรับ)"
+            color = "#00E5FF"
+            desc = f"ราคาลงมาทดสอบแนวรับ {s1:,.0f} และยังมีแรงซื้อพยุง"
+            strategy = "Buy on Support: เข้าซื้อสะสมที่แนวรับ โดยวาง Stop Loss หากหลุดแนวนี้"
+    
+    return verdict, color, desc, strategy
+
 def calculate_static_round_numbers(price):
-    # Determine step size
     if price > 2000000: step = 50000
     elif price > 100000: step = 10000
     elif price > 50000: step = 1000
@@ -380,9 +416,6 @@ def calculate_bitkub_ai_levels(h, l, c):
     mid = (h+l)/2
     st, col = ("BULLISH (กระทิง)", "#00E676") if c > mid else ("BEARISH (หมี)", "#FF1744")
     
-    if c > pp: insight = f"ราคายืนเหนือ Pivot ({pp:,.0f}) ได้ ลุ้นทดสอบต้านถัดไปที่ R1"
-    else: insight = f"ราคาหลุดต่ำกว่า Pivot ({pp:,.0f}) ระวังลงไปทดสอบ S1"
-    
     return {
         "levels": [
             {"name":"🚀 R2","price":pp+rng,"type":"res"}, {"name":"🛑 R1","price":(2*pp)-l,"type":"res"},
@@ -390,7 +423,7 @@ def calculate_bitkub_ai_levels(h, l, c):
             {"name":"🛡️ S1","price":(2*pp)-h,"type":"sup"}, {"name":"💎 S2","price":pp-rng,"type":"sup"}
         ],
         "fib": {"top": l+(rng*0.618), "bot": l+(rng*0.382)}, 
-        "status": st, "color": col, "insight": insight
+        "status": st, "color": col
     }
 
 def calculate_heikin_ashi(df):
@@ -658,7 +691,7 @@ if symbol:
                     for r in guru['reasons_q']:
                         st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
                 with c2:
-                    st.markdown("#### ⚖️ Valuation Details") # Removed as requested (but code still has it, removing in logic)
+                    # Removed Header as requested
                     for r in guru['reasons_v']:
                         st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
             else:
@@ -674,18 +707,34 @@ if symbol:
                     last, h24, l24 = d.get('last',0), d.get('high24hr',0), d.get('low24hr',0)
                     ai_bk = calculate_bitkub_ai_levels(h24, l24, last)
                     
+                    # Static S/R Logic
+                    static_lvls = calculate_static_round_numbers(last)
+                    
+                    # AI Analyst for Bitkub (Using Static Levels)
+                    bk_verd, bk_col, bk_desc, bk_strat = analyze_bitkub_static_guru(last, static_lvls)
+
                     st.markdown(f"""
                     <div class='ai-insight-box' style='text-align:center; border:2px solid {ai_bk['color']};'>
                         <div style='font-size:3rem; font-weight:900; color:#fff;'>{last:,.0f} <span style='font-size:1.5rem;'>THB</span></div>
                         <div style='font-size:1.5rem; font-weight:bold; color:{ai_bk['color']}; text-transform:uppercase;'>{ai_bk['status']}</div>
-                        <p style='margin-top:10px; color:#ccc;'>🧠 AI: {ai_bk['insight']}</p>
+                    </div>
+                    
+                    <!-- NEW: Bitkub AI Static Guru Section -->
+                    <div class='ai-insight-box' style='border-color:{bk_col}; margin-top:15px;'>
+                        <div style="display:flex; align-items:center; gap:15px;">
+                            <span style="font-size:2.5rem;">🧠</span>
+                            <div>
+                                <h3 style="margin:0; color:{bk_col};">{bk_verd}</h3>
+                                <p style="color:#ddd; margin:5px 0;">{bk_desc}</p>
+                            </div>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:10px; margin-top:10px;">
+                            <b style="color:#00E5FF;">💡 Strategy:</b> {bk_strat}
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Static S/R Section
-                    static_lvls = calculate_static_round_numbers(last)
                     st.markdown("#### 🧱 Static Psychological Levels (แนวรับต้านจิตวิทยา)")
-                    
                     col_s1, col_s2 = st.columns(2)
                     with col_s1:
                          st.markdown(f"<div class='static-card'><span class='static-label'>Res 2</span><span class='static-val' style='color:#FF1744'>{static_lvls['Res 2']:,.0f}</span></div>", unsafe_allow_html=True)
@@ -716,7 +765,7 @@ if symbol:
                 else: st.error("ไม่พบข้อมูล")
             else: st.warning("Connecting...")
         
-        # 9. Calculator (Money Management)
+        # 9. Calculator
         with tabs[8]:
             st.markdown("### 🧮 Money Management (คำนวณไม้เทรด)")
             
