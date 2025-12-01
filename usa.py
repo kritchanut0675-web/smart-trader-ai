@@ -33,7 +33,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-if 'symbol' not in st.session_state: st.session_state.symbol = 'RKLB'
+if 'symbol' not in st.session_state: st.session_state.symbol = 'ASTS'
 
 def set_symbol(sym): st.session_state.symbol = sym
 
@@ -260,21 +260,21 @@ def generate_ai_trade_reasoning(price, setup, strat_levels, val_score):
 
     return reason_title, reason_desc, reason_color, reason_icon
 
-# --- UPGRADED: AI Guru (Fix for RKLB/Crypto) ---
+# --- UPGRADED: AI Guru (Auto-Switch to Technical if No Fundamentals) ---
 def analyze_stock_guru(info, setup, symbol):
-    # ป้องกัน Crash ถ้า info เป็น None
+    # ป้องกัน info เป็น None
     if info is None: info = {}
     
     pe = info.get('trailingPE')
-    roe = info.get('returnOnEquity')
     
-    # 1. กรณีไม่มีข้อมูลงบ (Crypto/Index/Growth Stock ขาดทุน)
+    # 1. กรณีไม่มี P/E (เช่น ASTS, Crypto, หุ้น Growth ขาดทุน)
+    # เราจะสลับไปใช้ Technical Analysis ทันที ไม่ยอมให้ขึ้น Error
     if pe is None:
-        val_score = 5
-        reasons_q = ["ℹ️ ไม่พบข้อมูล P/E (อาจขาดทุนหรือเป็น Crypto)"]
+        val_score = 5 # คะแนนกลางๆ เริ่มต้น
+        reasons_q = ["ℹ️ ไม่พบข้อมูล P/E (อาจขาดทุนหรือเป็น Crypto/Growth)"]
         reasons_v = []
         
-        # ใช้ Technical แทน
+        # ให้คะแนนจาก Technical
         if "UPTREND" in setup['trend']: 
             val_score += 3
             reasons_v.append("✅ Trend เป็นขาขึ้น (Bullish)")
@@ -284,20 +284,22 @@ def analyze_stock_guru(info, setup, symbol):
             
         if setup['rsi_val'] < 30: 
             val_score += 2
-            reasons_v.append("✅ RSI Oversold (ขายมากเกินไป)")
+            reasons_v.append("✅ RSI Oversold (ขายมากเกินไป/ถูก)")
         elif setup['rsi_val'] > 70:
             val_score -= 2
             reasons_v.append("⚠️ RSI Overbought (แพงระยะสั้น)")
             
         verdict = "Technical Speculation"
-        color = "#2979FF" # Blue
-        article = f"เนื่องจาก **{symbol}** ไม่มีข้อมูล P/E (อาจเป็นหุ้น Growth ที่ยังขาดทุนหรือสินทรัพย์ทางเลือก) ระบบ AI จึงวิเคราะห์จาก **Price Action** แทน \n\nขณะนี้แนวโน้มเป็น **{setup['trend']}** และ RSI อยู่ที่ **{setup['rsi_val']:.1f}** แนะนำให้ใช้กลยุทธ์ทางเทคนิคในการเข้าออก"
+        color = "#2979FF" # สีฟ้า Technical
+        
+        article = f"เนื่องจาก **{symbol}** ไม่มีข้อมูล P/E (อาจเป็นหุ้น Growth ที่เน้นการเติบโตแต่ยังขาดทุน หรือเป็นสินทรัพย์ทางเลือก) \n\nระบบ AI จึงเปลี่ยนมาวิเคราะห์ด้วย **Technical Analysis** แทน โดยพบว่าแนวโน้มปัจจุบันเป็น **{setup['trend']}** และ RSI อยู่ที่ **{setup['rsi_val']:.1f}** ซึ่งสะท้อนแรงซื้อขายในตลาด"
         
         return {"verdict": verdict, "color": color, "val_score": max(0, min(10, val_score)), "article": article, "reasons_q": reasons_q, "reasons_v": reasons_v}
 
-    # 2. กรณีมีข้อมูลงบปกติ (Normal Stock Logic)
+    # 2. กรณีมีข้อมูลพื้นฐานปกติ (Valuation Analysis)
     peg = info.get('pegRatio')
     pb = info.get('priceToBook')
+    roe = info.get('returnOnEquity', 0)
     profit_margin = info.get('profitMargins', 0)
     rev_growth = info.get('revenueGrowth', 0)
     sector = info.get('sector', 'General')
@@ -765,7 +767,7 @@ if symbol:
                 </div>
                 """, unsafe_allow_html=True)
 
-        # 6. S/R Dynamic
+        # 6. S/R Dynamic (FIXED HEADER & CARD INDENTATION)
         with tabs[5]:
             st.markdown("### 🧠 AI Strategic Support (วางแผนการรับของ)")
             
