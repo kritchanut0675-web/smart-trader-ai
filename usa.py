@@ -80,15 +80,6 @@ st.markdown("""
         .sr-sup { background: linear-gradient(90deg, rgba(0, 230, 118, 0.2), rgba(0,0,0,0)); border-left: 5px solid #00E676; }
         .sr-piv { background: linear-gradient(90deg, rgba(255, 214, 0, 0.2), rgba(0,0,0,0)); border-left: 5px solid #FFD600; }
         
-        /* Static Grid Card */
-        .static-card {
-            background: #161616; padding: 15px; border-radius: 10px; 
-            border: 1px solid #333; margin-bottom: 8px;
-            display: flex; justify-content: space-between;
-        }
-        .static-label { color: #aaa; font-weight: 600; }
-        .static-val { color: #00E5FF; font-weight: bold; }
-        
         /* AI Verdict Ring */
         .verdict-ring {
             width: 140px; height: 140px; border-radius: 50%;
@@ -131,6 +122,15 @@ st.markdown("""
             font-size: 1rem; line-height: 1.8; color: #ddd;
             margin-top: 20px;
         }
+        
+        /* Static Grid Card */
+        .static-card {
+            background: #161616; padding: 15px; border-radius: 10px; 
+            border: 1px solid #333; margin-bottom: 8px;
+            display: flex; justify-content: space-between;
+        }
+        .static-label { color: #aaa; font-weight: 600; }
+        .static-val { color: #00E5FF; font-weight: bold; }
 
         /* Custom Tabs */
         button[data-baseweb="tab"] { 
@@ -168,73 +168,84 @@ def get_stock_info(symbol):
     try: return yf.Ticker(symbol).info
     except: return None
 
-# --- AI Guru Analysis Logic ---
-def analyze_stock_guru(info, setup, symbol):
+# --- SMART AI GURU LOGIC (ENHANCED) ---
+def analyze_smart_guru(info, setup, symbol):
+    # 1. Data Extraction
     pe = info.get('trailingPE')
     peg = info.get('pegRatio')
     pb = info.get('priceToBook')
     roe = info.get('returnOnEquity', 0)
     profit_margin = info.get('profitMargins', 0)
-    rev_growth = info.get('revenueGrowth', 0)
-    sector = info.get('sector', 'General')
+    debt_eq = info.get('debtToEquity', 0) # ความเสี่ยง
+    beta = info.get('beta', 1) # ความผันผวน
     
-    val_score = 0
-    reasons_q = []
-    reasons_v = []
-
-    if roe and roe > 0.15: reasons_q.append("✅ ROE สูง (>15%) บริหารทุนเก่ง")
-    elif roe and roe < 0: reasons_q.append("❌ ROE ติดลบ ขาดทุน")
-    if profit_margin and profit_margin > 0.10: reasons_q.append("✅ อัตรากำไรดี (>10%)")
-    if rev_growth and rev_growth > 0: reasons_q.append("✅ รายได้เติบโต")
-    else: reasons_q.append("⚠️ รายได้ไม่โต หรือหดตัว")
+    score = 0
+    max_score = 100
+    analysis = []
     
+    # 2. Scoring Algorithm (Weighted)
+    
+    # Valuation (40%)
     if pe:
-        if pe < 15: val_score += 3; reasons_v.append("✅ P/E ต่ำ (ถูก)")
-        elif pe < 25: val_score += 2; reasons_v.append("⚖️ P/E เหมาะสม")
-        elif pe < 40: val_score += 1; reasons_v.append("⚠️ P/E เริ่มสูง")
-    else: val_score += 1
-    
+        if pe < 15: score += 15; analysis.append("✅ P/E ต่ำ (Undervalued)")
+        elif pe < 30: score += 10; analysis.append("⚖️ P/E เหมาะสม")
+        else: analysis.append("⚠️ P/E สูง (Overvalued)")
+    else: score += 5 # Neutral if no data
+        
     if peg:
-        if peg < 1.0: val_score += 3; reasons_v.append("✅ PEG < 1 (โตคุ้มราคา)")
-        elif peg < 2.0: val_score += 2; reasons_v.append("⚖️ PEG ปกติ")
-        else: val_score += 0; reasons_v.append("❌ PEG สูง (โตไม่ทันราคา)")
+        if peg < 1: score += 15; analysis.append("✅ PEG < 1 (เติบโตคุ้มราคา)")
+        elif peg < 2: score += 10
+        else: analysis.append("⚠️ PEG สูง (ราคาแซงการเติบโต)")
     
-    if pb and pb < 3: val_score += 2
-    if roe and roe > 0.15: val_score += 2
-
-    val_score = min(10, val_score)
-
-    intro = f"จากการวิเคราะห์หุ้น **{symbol}** ในกลุ่มอุตสาหกรรม **{sector}** ด้วยระบบ AI Guru พบข้อมูลที่น่าสนใจดังนี้:\n\n"
-    val_text = ""
-    if pe:
-        if pe < 15: val_text = f"ในมุมมองความคุ้มค่า (Valuation) หุ้นตัวนี้ถือว่า **'ราคาถูก (Undervalued)'** เมื่อเทียบกับกำไรที่ทำได้ โดยมีค่า P/E อยู่ที่ {pe:.2f} ซึ่งต่ำกว่าเกณฑ์มาตรฐาน "
-        elif pe > 40: val_text = f"ในมุมมองความคุ้มค่า ราคาหุ้นปัจจุบันค่อนข้าง **'แพง (Overvalued)'** มีค่า P/E สูงถึง {pe:.2f} สะท้อนความคาดหวังของนักลงทุนที่สูงมาก "
-        else: val_text = f"ราคาหุ้นปัจจุบันถือว่า **'สมเหตุสมผล (Fair Price)'** มีค่า P/E อยู่ที่ {pe:.2f} เป็นระดับที่ยอมรับได้ "
-    else: val_text = "ไม่สามารถประเมินค่า P/E ได้ชัดเจน (อาจขาดทุนหรือเป็นกองทุน) "
-
-    qual_text = ""
-    if roe and roe > 0.15: qual_text = f"\n\nด้านคุณภาพบริษัท (Quality) จัดว่ายอดเยี่ยม มี ROE สูงถึง {roe*100:.1f}% แสดงถึงความสามารถในการบริหารเงินทุนของผู้บริหารที่เก่งกาจ "
-    elif profit_margin and profit_margin < 0.05: qual_text = f"\n\nด้านคุณภาพอาจต้องระวังเรื่องอัตรากำไรที่ค่อนข้างบาง ({profit_margin*100:.1f}%) ซึ่งอาจเปราะบางต่อเศรษฐกิจ "
-
-    tech_text = f"\n\n**คำแนะนำเชิงกลยุทธ์:** เมื่อประกอบกับกราฟเทคนิคที่เป็น **{setup['trend']}** "
-    if setup['trend'] == "UPTREND (ขาขึ้น)":
-        if val_score >= 7: tech_text += "และพื้นฐานที่แข็งแกร่ง **'แนะนำให้ทยอยสะสม (Buy)'** ได้ทันที เพราะทั้งพื้นฐานและเทคนิคสนับสนุนกัน ราคาเป้าหมายยังมี Upside"
-        else: tech_text += "แม้เทคนิคจะดูดี แต่พื้นฐานเริ่มตึงตัว **'แนะนำให้เก็งกำไรระยะสั้น (Trading)'** และวางจุด Stop Loss อย่างเคร่งครัด ไม่ควรถือยาว"
-    elif setup['trend'] == "DOWNTREND (ขาลง)":
-        if val_score >= 8:
-            tech_text += "แม้พื้นฐานจะดีและราคาถูกมาก แต่กราฟยังเป็นขาลง **'แนะนำให้ Wait & See'** รอให้กราฟสร้างฐานหรือยืนเหนือเส้น EMA ก่อนค่อยเข้าซื้อ จะได้ของดีในราคาที่ปลอดภัยกว่า"
+    if pb and pb < 3: score += 10
+    
+    # Efficiency & Growth (30%)
+    if roe and roe > 0.15: score += 15; analysis.append("✅ ROE สูง (>15%) บริหารเก่ง")
+    if profit_margin and profit_margin > 0.10: score += 15; analysis.append("✅ Margin หนา (>10%)")
+    
+    # Risk & Safety (30%)
+    if debt_eq and debt_eq < 100: score += 15; analysis.append("✅ หนี้ต่ำ (Safe)")
+    elif debt_eq > 200: score -= 10; analysis.append("⚠️ หนี้สูง (High Debt)")
+    
+    if beta and beta < 1.5: score += 15; analysis.append("✅ ความผันผวนต่ำ (Stable)")
+    
+    # Cap Score
+    score = min(100, max(0, score))
+    
+    # 3. Confluence Strategy (Fundamental + Technical)
+    trend = setup['trend']
+    
+    if score >= 70: # พื้นฐานดี
+        fund_status = "Strong"
+        if "UPTREND" in trend:
+            strategy = "🚀 **SNIPER ENTRY:** หุ้นดี + กราฟสวย = ซื้อสะสมได้ทันที (Follow Trend)"
+            action_color = "#00E676"
+        elif "DOWNTREND" in trend:
+            strategy = "🛡️ **VALUE TRAP?:** พื้นฐานดีแต่กราฟลง = รอให้กราฟสร้างฐานก่อนค่อยรับ (Wait for Reversal)"
+            action_color = "#FFD600"
         else:
-            tech_text += "ประกอบกับพื้นฐานที่อ่อนแอ/แพง **'แนะนำให้หลีกเลี่ยง (Avoid)'** ไปก่อน จนกว่าจะมีสัญญาณการกลับตัวที่ชัดเจน"
-    else:
-        tech_text += "ควรรอให้ราคาเลือกทางที่ชัดเจนก่อนเข้าลงทุน (Wait for Breakout)"
-
-    full_article = intro + val_text + qual_text + tech_text
-
-    if val_score >= 8: status, color = "💎 Hidden Gem (ของดีราคาถูก)", "#00E676"
-    elif val_score >= 5: status, color = "⚖️ Fair Value (เหมาะสม)", "#FFD600"
-    else: status, color = "⚠️ High Risk / Expensive", "#FF1744"
-
-    return {"verdict": status, "color": color, "val_score": val_score, "article": full_article, "reasons_q": reasons_q, "reasons_v": reasons_v}
+            strategy = "👀 **WATCHLIST:** หุ้นดีแต่กราฟออกข้าง = ทยอยสะสมเมื่อย่อตัว (Accumulate)"
+            action_color = "#00E5FF"
+    elif score <= 40: # พื้นฐานแย่
+        fund_status = "Weak"
+        if "UPTREND" in trend:
+            strategy = "🎰 **SPECULATIVE:** พื้นฐานไม่ดีแต่กราฟขึ้น = เก็งกำไรสั้นๆ เท่านั้น (Strict Stop Loss)"
+            action_color = "#FFD600"
+        else:
+            strategy = "☠️ **AVOID:** พื้นฐานแย่ + กราฟลง = ห้ามยุ่งเด็ดขาด (Strong Sell)"
+            action_color = "#FF1744"
+    else: # พื้นฐานกลางๆ
+        fund_status = "Neutral"
+        strategy = "⚖️ **TRADING:** พื้นฐานกลางๆ = เล่นรอบตามกรอบแนวรับแนวต้าน (Swing Trade)"
+        action_color = "#00E5FF"
+        
+    return {
+        "score": score,
+        "fund_status": fund_status,
+        "analysis_list": analysis,
+        "strategy": strategy,
+        "action_color": action_color
+    }
 
 def get_sector_pe_benchmark(sector):
     benchmarks = {'Technology': 25, 'Financial Services': 15, 'Healthcare': 22, 'Consumer Cyclical': 20, 'Industrials': 20, 'Energy': 12}
@@ -516,7 +527,7 @@ if symbol:
         </div>
         """, unsafe_allow_html=True)
 
-        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R Dynamic", "🧠 AI Guru", "🇹🇭 Bitkub AI", "🧮 Calc"])
+        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R Dynamic & Guru", "🇹🇭 Bitkub AI", "🧮 Calc"])
 
         # 1. Chart
         with tabs[0]:
@@ -637,11 +648,30 @@ if symbol:
                 </div>
                 """, unsafe_allow_html=True)
 
-        # 6. S/R Dynamic
+        # 6. S/R Dynamic & Guru (Combined)
         with tabs[5]:
             pivots = calculate_pivot_points(df)
             dynamic = calculate_dynamic_levels(df)
             
+            # --- AI Guru Section (Embedded here) ---
+            if info:
+                guru = analyze_smart_guru(info, setup, symbol)
+                st.markdown(f"""
+                <div class='ai-insight-box' style='border:2px solid {guru['action_color']}; margin-bottom:25px;'>
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <span style="font-size:2.5rem;">🧠</span>
+                        <div>
+                            <h2 style="margin:0; color:{guru['action_color']};">{guru['strategy']}</h2>
+                            <p style="color:#ddd; margin:5px 0;">Fundamental: {guru['fund_status']} | Technical: {setup['trend']}</p>
+                        </div>
+                    </div>
+                    <div style="margin-top:15px;">
+                        {' '.join([f"<span style='background:#111; padding:5px 10px; border-radius:5px; margin-right:5px; font-size:0.9rem;'>{item}</span>" for item in guru['analysis_list']])}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # --- S/R Section ---
             if pivots and dynamic:
                 msg, col, icon, act = generate_dynamic_insight(curr, pivots, dynamic)
                 st.markdown(f"""
@@ -666,39 +696,8 @@ if symbol:
                             cl = "#00E676" if curr > v else "#FF1744"
                             st.markdown(f"<div class='sr-card' style='border-left:4px solid {cl}; background:rgba({255 if cl=='#FF1744' else 0}, {230 if cl=='#00E676' else 23}, {118 if cl=='#00E676' else 68}, 0.1);'><span>{k}</span><div style='text-align:right;'>{v:,.2f}<br><small style='color:{cl}'>{dist:+.2f}%</small></div></div>", unsafe_allow_html=True)
 
-        # 7. AI Guru
+        # 7. Bitkub AI
         with tabs[6]:
-            st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
-            if info:
-                guru = analyze_stock_guru(info, setup, symbol)
-                st.markdown(f"""
-                <div class='ai-insight-box' style='border:2px solid {guru['color']}; text-align:center; margin-bottom:20px;'>
-                    <h1 style='color:{guru['color']}; font-size:3rem; margin:0;'>{guru['verdict']}</h1>
-                    <div style="margin:20px 0; background:#333; border-radius:10px; height:10px; width:100%;">
-                        <div style="width:{guru['val_score']*10}%; background:{guru['color']}; height:100%; border-radius:10px;"></div>
-                    </div>
-                    <p style='font-size:1.1rem; color:#ccc;'>Valuation Score: {guru['val_score']}/10</p>
-                </div>
-                <div class='ai-article'>
-                    <h4 style='margin-top:0; color:#fff;'>📝 บทวิเคราะห์โดย AI (AI Analyst Report)</h4>
-                    {guru['article']}
-                </div>
-                """, unsafe_allow_html=True)
-                
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.markdown("#### 🏢 Quality Score (พื้นฐาน)")
-                    for r in guru['reasons_q']:
-                        st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
-                with c2:
-                    # Removed Header as requested
-                    for r in guru['reasons_v']:
-                        st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
-            else:
-                st.info("⚠️ ไม่สามารถวิเคราะห์ได้ (ไม่มีข้อมูลพื้นฐาน/งบการเงิน) สำหรับสินทรัพย์นี้")
-
-        # 8. Bitkub AI
-        with tabs[7]:
             bk_sel = st.radio("เลือกเหรียญ (THB)", ["BTC", "ETH"], horizontal=True)
             if bk_data:
                 pair = f"THB_{bk_sel}"
@@ -717,6 +716,7 @@ if symbol:
                     <div class='ai-insight-box' style='text-align:center; border:2px solid {ai_bk['color']};'>
                         <div style='font-size:3rem; font-weight:900; color:#fff;'>{last:,.0f} <span style='font-size:1.5rem;'>THB</span></div>
                         <div style='font-size:1.5rem; font-weight:bold; color:{ai_bk['color']}; text-transform:uppercase;'>{ai_bk['status']}</div>
+                        <p style='margin-top:10px; color:#ccc;'>🧠 AI: {ai_bk['insight']}</p>
                     </div>
                     
                     <!-- NEW: Bitkub AI Static Guru Section -->
@@ -765,8 +765,8 @@ if symbol:
                 else: st.error("ไม่พบข้อมูล")
             else: st.warning("Connecting...")
         
-        # 9. Calculator
-        with tabs[8]:
+        # 8. Calculator
+        with tabs[7]:
             st.markdown("### 🧮 Money Management (คำนวณไม้เทรด)")
             
             col_calc1, col_calc2 = st.columns(2)
