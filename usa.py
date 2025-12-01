@@ -170,58 +170,80 @@ def get_stock_info(symbol):
 
 # --- NEW: Strategic Support Logic (3 Levels + Allocation) ---
 def calculate_strategic_supports(price):
-    # 1. กำหนด Step การขยับราคาตามช่วงราคาปัจจุบัน
-    if price > 2000000: step = 50000      # BTC (THB)
-    elif price > 100000: step = 10000     # ETH (THB) / YCC
-    elif price > 50000: step = 2000       # Big Cap Crypto
-    elif price > 10000: step = 1000       # Gold / SET Index
-    elif price > 1000: step = 100         # High price Stock
-    elif price > 100: step = 10           # Mid price Stock
-    elif price > 10: step = 1             # Low price Stock
-    elif price > 1: step = 0.1            # Penny Stock
+    if price > 2000000: step = 50000      
+    elif price > 100000: step = 10000     
+    elif price > 50000: step = 2000       
+    elif price > 10000: step = 1000       
+    elif price > 1000: step = 100         
+    elif price > 100: step = 10           
+    elif price > 10: step = 1             
+    elif price > 1: step = 0.1            
     else: step = 0.01
 
-    # 2. คำนวณหาราคาฐาน (Round Number)
     base = (price // step) * step
-    
-    # กรณีราคาปัจจุบันจ่อแนวรับมากเกินไป (< 0.5% ของ step) ให้ขยับฐานลงไปอีกขั้น
-    if (price - base) < (step * 0.05):
-        base = base - step
+    if (price - base) < (step * 0.05): base = base - step
 
-    # 3. กำหนด 3 ระดับ และ AI Suggestion
     levels = [
-        {
-            "name": "🛡️ แนวรับแรก (First Sup)", 
-            "price": base, 
-            "type": "testing",
-            "desc": "แนวรับระยะสั้น รับความเสี่ยงได้",
-            "action": "ไม้ที่ 1: ซื้อแหย่/เก็งกำไร",
-            "alloc": "20%",
-            "color": "#FFD600", # เหลือง
-            "bar": 20
-        },
-        {
-            "name": "🧠 แนวรับจิตวิทยา (Psych Sup)", 
-            "price": base - step, 
-            "type": "accumulate",
-            "desc": "แนวรับสำคัญ ตัวเลขกลมๆ",
-            "action": "ไม้ที่ 2: เริ่มสะสม/ถัวเฉลี่ย",
-            "alloc": "30%",
-            "color": "#FF9100", # ส้ม
-            "bar": 50
-        },
-        {
-            "name": "💎 แนวรับแข็งแกร่ง (Strong Sup)", 
-            "price": base - (step * 2.5), # ให้ระยะห่างขึ้นหน่อยเพื่อความปลอดภัย
-            "type": "value",
-            "desc": "โซนปลอดภัย ราคาถูกมาก (Deep Value)",
-            "action": "ไม้ที่ 3: ซื้อลงทุน/จัดหนัก",
-            "alloc": "50%",
-            "color": "#00E676", # เขียว
-            "bar": 100
-        }
+        {"name": "🛡️ แนวรับแรก (First Sup)", "price": base, "action": "ไม้ที่ 1: ซื้อแหย่/เก็งกำไร", "alloc": "20%", "color": "#FFD600", "bar": 20, "desc": "โซนเก็งกำไรระยะสั้น รับความเสี่ยงได้"},
+        {"name": "🧠 แนวรับจิตวิทยา (Psych Sup)", "price": base - step, "action": "ไม้ที่ 2: เริ่มสะสม/ถัวเฉลี่ย", "alloc": "30%", "color": "#FF9100", "bar": 50, "desc": "โซนสะสมที่ปลอดภัยขึ้น มักมีแรงเด้ง"},
+        {"name": "💎 แนวรับแข็งแกร่ง (Strong Sup)", "price": base - (step * 2.5), "action": "ไม้ที่ 3: ซื้อลงทุน/จัดหนัก", "alloc": "50%", "color": "#00E676", "bar": 100, "desc": "โซน Deep Value ราคาถูกมาก ปลอดภัยสูง"}
     ]
     return levels, step
+
+# --- AI Trade Reasoning (New for Guru) ---
+def generate_ai_trade_reasoning(price, setup, strat_levels, val_score):
+    first_sup = strat_levels[0]['price']
+    strong_sup = strat_levels[2]['price']
+    
+    gap_first = ((price - first_sup) / price) * 100
+    gap_strong = ((price - strong_sup) / price) * 100
+    
+    reason_title = ""
+    reason_desc = ""
+    reason_color = ""
+    reason_icon = ""
+
+    # Logic การวิเคราะห์
+    if setup['trend'] == "UPTREND (ขาขึ้น)":
+        if gap_first < 2.0:
+            reason_title = "✅ BUY ON DIP (ย่อซื้อในขาขึ้น)"
+            reason_desc = "กราฟเป็นขาขึ้นและราคาย่อตัวลงมาใกล้ 'แนวรับแรก' เป็นจังหวะที่ดีในการเข้าซื้อเพื่อเก็งกำไรตามเทรนด์ (Trend Following) ความเสี่ยงต่ำกว่าการไล่ราคา"
+            reason_color = "#00E676"
+            reason_icon = "🚀"
+        elif setup['rsi_val'] > 70:
+            reason_title = "⚠️ WAIT / TAKE PROFIT (ระวังแรงเทขาย)"
+            reason_desc = "แม้จะเป็นขาขึ้น แต่ราคาและ RSI เข้าโซน Overbought (ซื้อมากเกินไป) เสี่ยงต่อการพักตัว แนะนำให้รอหรือแบ่งขายทำกำไร ห้ามไล่ราคาตอนนี้"
+            reason_color = "#FFD600"
+            reason_icon = "✋"
+        else:
+            reason_title = "📈 HOLD / ACCUMULATE (ถือรันเทรนด์)"
+            reason_desc = "กราฟยังแข็งแกร่ง ยืนเหนือเส้นค่าเฉลี่ยได้ดี ใครมีของให้ถือต่อ (Let Profit Run) ใครไม่มีของรอจังหวะย่อตัวตามแนวรับ"
+            reason_color = "#2979FF"
+            reason_icon = "💎"
+    
+    elif setup['trend'] == "DOWNTREND (ขาลง)":
+        if val_score >= 8 and gap_strong < 3.0:
+            reason_title = "💎 VALUE BUY (ของดีราคาถูก)"
+            reason_desc = "กราฟเป็นขาลงแต่ราคาลงมาลึกใกล้ 'แนวรับแข็งแกร่ง' ประกอบกับพื้นฐานดีมาก (Valuation Score สูง) เป็นโอกาสทยอยสะสมลงทุนระยะยาว (สวนเทรนด์ต้องระวัง)"
+            reason_color = "#00E676"
+            reason_icon = "💰"
+        elif gap_first < 1.0:
+            reason_title = "⚔️ PLAY BOUNCE (เก็งกำไรเด้งรีบาวด์)"
+            reason_desc = "ราคาชนแนวรับจิตวิทยา มีโอกาสเด้งสั้นๆ แต่เนื่องจากเป็นขาลงหลัก 'ห้ามถือยาว' ให้เล่นรอบเร็ว เข้าเร็วออกเร็ว (Hit & Run)"
+            reason_color = "#FF9100"
+            reason_icon = "⚡"
+        else:
+            reason_title = "⛔ AVOID / WAIT (อย่าเพิ่งรับมีด)"
+            reason_desc = "กราฟเป็นขาลงชัดเจนและราคายังลอยตัวกลางอากาศ ไม่ถึงแนวรับสำคัญ มีโอกาสลงต่อสูง แนะนำให้นั่งทับมือรอไปก่อน (Wait & See)"
+            reason_color = "#FF1744"
+            reason_icon = "🛑"
+    else:
+        reason_title = "⚖️ SIDEWAY (รอเลือกทาง)"
+        reason_desc = "กราฟออกข้าง ไม่ชัดเจน แนะนำให้ซื้อที่แนวรับและขายที่แนวต้าน (Swing Trade) หรือรอให้ราคา Breakout เลือกทางก่อน"
+        reason_color = "#E0E0E0"
+        reason_icon = "⚖️"
+
+    return reason_title, reason_desc, reason_color, reason_icon
 
 # --- AI Guru Analysis Logic ---
 def analyze_stock_guru(info, setup, symbol):
@@ -696,17 +718,13 @@ if symbol:
                 </div>
                 """, unsafe_allow_html=True)
 
-        # 6. S/R Dynamic (FIXED INDENTATION)
+        # 6. S/R Dynamic
         with tabs[5]:
-            # --- Updated: Strategic Support & AI Allocator ---
             st.markdown("### 🧠 AI Strategic Support (วางแผนการรับของ)")
             
             strat_levels, step_size = calculate_strategic_supports(curr)
-            
-            # คำนวณระยะห่างจากราคาปัจจุบันถึงแนวรับแรก
             gap_pct = ((curr - strat_levels[0]['price']) / curr) * 100
             
-            # Advice Header
             st.markdown(f"""
 <div style="background:rgba(0, 229, 255, 0.1); padding:15px; border-radius:10px; border-left:4px solid #00E5FF; margin-bottom:20px;">
 <h4 style="margin:0; color:#00E5FF;">💡 AI Strategy Advisor</h4>
@@ -717,13 +735,10 @@ if symbol:
 </div>
 """, unsafe_allow_html=True)
 
-            # Loop สร้าง Card 3 ระดับ
             for lvl in strat_levels:
-                # คำนวณ Gap ของแต่ละ Level
                 l_gap = ((curr - lvl['price']) / curr) * 100
                 is_near = "ใกล้ถึงแล้ว! 🚨" if l_gap < 1.0 else f"อีก {l_gap:.2f}%"
                 
-                # FIXED HTML STRING INDENTATION HERE
                 html_content = f"""
 <div style="background: linear-gradient(145deg, #1a1a1a, #111); border: 1px solid #333; border-left: 6px solid {lvl['color']}; border-radius: 15px; padding: 20px; margin-bottom: 15px; position: relative; overflow: hidden;">
 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -748,14 +763,11 @@ if symbol:
                 st.markdown(html_content, unsafe_allow_html=True)
             
             st.markdown("---")
-
-            # --- ส่วนเดิม: Pivot Points & Dynamic Levels ---
             pivots = calculate_pivot_points(df)
             dynamic = calculate_dynamic_levels(df)
             
             if pivots and dynamic:
                 msg, col, icon, act = generate_dynamic_insight(curr, pivots, dynamic)
-                
                 c1, c2 = st.columns(2)
                 with c1:
                     st.markdown("#### 🎯 Pivot Points (Day Trading)")
@@ -770,11 +782,15 @@ if symbol:
                             cl = "#00E676" if curr > v else "#FF1744"
                             st.markdown(f"<div class='sr-card' style='border-left:4px solid {cl}; background:rgba({255 if cl=='#FF1744' else 0}, {230 if cl=='#00E676' else 23}, {118 if cl=='#00E676' else 68}, 0.1);'><span>{k}</span><div style='text-align:right;'>{v:,.2f}<br><small style='color:{cl}'>{dist:+.2f}%</small></div></div>", unsafe_allow_html=True)
 
-        # 7. AI Guru
+        # 7. AI Guru (UPDATED: Added Why Buy/Avoid)
         with tabs[6]:
             st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
             if info:
                 guru = analyze_stock_guru(info, setup, symbol)
+                # คำนวณเหตุผลการเข้าซื้อ (New Function)
+                strat_lvls, _ = calculate_strategic_supports(curr)
+                why_title, why_desc, why_color, why_icon = generate_ai_trade_reasoning(curr, setup, strat_lvls, guru['val_score'])
+
                 st.markdown(f"""
                 <div class='ai-insight-box' style='border:2px solid {guru['color']}; text-align:center; margin-bottom:20px;'>
                     <h1 style='color:{guru['color']}; font-size:3rem; margin:0;'>{guru['verdict']}</h1>
@@ -783,6 +799,18 @@ if symbol:
                     </div>
                     <p style='font-size:1.1rem; color:#ccc;'>Valuation Score: {guru['val_score']}/10</p>
                 </div>
+                
+                <!-- NEW: AI ACTION RATIONALE -->
+                <div class='ai-insight-box' style='border-color:{why_color}; background:rgba(0,0,0,0.3); margin-bottom:20px;'>
+                    <div style="display:flex; gap:15px; align-items:flex-start;">
+                        <span style="font-size:2.5rem;">{why_icon}</span>
+                        <div>
+                            <h3 style="margin:0; color:{why_color};">{why_title}</h3>
+                            <p style="margin:5px 0 0 0; font-size:1.1rem; color:#ddd; line-height:1.5;">{why_desc}</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class='ai-article'>
                     <h4 style='margin-top:0; color:#fff;'>📝 บทวิเคราะห์โดย AI (AI Analyst Report)</h4>
                     {guru['article']}
@@ -795,13 +823,12 @@ if symbol:
                     for r in guru['reasons_q']:
                         st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
                 with c2:
-                    # Removed Header as requested
                     for r in guru['reasons_v']:
                         st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
             else:
                 st.info("⚠️ ไม่สามารถวิเคราะห์ได้ (ไม่มีข้อมูลพื้นฐาน/งบการเงิน) สำหรับสินทรัพย์นี้")
 
-        # 8. Bitkub AI
+        # 8. Bitkub AI (UPDATED: Added Strategic Supports)
         with tabs[7]:
             bk_sel = st.radio("เลือกเหรียญ (THB)", ["BTC", "ETH"], horizontal=True)
             if bk_data:
@@ -810,62 +837,56 @@ if symbol:
                 if d:
                     last, h24, l24 = d.get('last',0), d.get('high24hr',0), d.get('low24hr',0)
                     ai_bk = calculate_bitkub_ai_levels(h24, l24, last)
-                    
-                    # Static S/R Logic
                     static_lvls = calculate_static_round_numbers(last)
-                    
-                    # AI Analyst for Bitkub (Using Static Levels)
                     bk_verd, bk_col, bk_desc, bk_strat = analyze_bitkub_static_guru(last, static_lvls)
 
                     st.markdown(f"""
-                    <div class='ai-insight-box' style='text-align:center; border:2px solid {ai_bk['color']};'>
+                    <div class='ai-insight-box' style='text-align:center; border:2px solid {ai_bk['color']}; margin-bottom:20px;'>
                         <div style='font-size:3rem; font-weight:900; color:#fff;'>{last:,.0f} <span style='font-size:1.5rem;'>THB</span></div>
                         <div style='font-size:1.5rem; font-weight:bold; color:{ai_bk['color']}; text-transform:uppercase;'>{ai_bk['status']}</div>
                     </div>
-                    
-                    <!-- NEW: Bitkub AI Static Guru Section -->
-                    <div class='ai-insight-box' style='border-color:{bk_col}; margin-top:15px;'>
-                        <div style="display:flex; align-items:center; gap:15px;">
-                            <span style="font-size:2.5rem;">🧠</span>
-                            <div>
-                                <h3 style="margin:0; color:{bk_col};">{bk_verd}</h3>
-                                <p style="color:#ddd; margin:5px 0;">{bk_desc}</p>
-                            </div>
-                        </div>
-                        <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:10px; margin-top:10px;">
-                            <b style="color:#00E5FF;">💡 Strategy:</b> {bk_strat}
-                        </div>
-                    </div>
                     """, unsafe_allow_html=True)
                     
-                    st.markdown("#### 🧱 Static Psychological Levels (แนวรับต้านจิตวิทยา)")
-                    col_s1, col_s2 = st.columns(2)
-                    with col_s1:
-                         st.markdown(f"<div class='static-card'><span class='static-label'>Res 2</span><span class='static-val' style='color:#FF1744'>{static_lvls['Res 2']:,.0f}</span></div>", unsafe_allow_html=True)
-                         st.markdown(f"<div class='static-card'><span class='static-label'>Res 1</span><span class='static-val' style='color:#FF5252'>{static_lvls['Res 1']:,.0f}</span></div>", unsafe_allow_html=True)
-                    with col_s2:
-                         st.markdown(f"<div class='static-card'><span class='static-label'>Sup 1</span><span class='static-val' style='color:#69F0AE'>{static_lvls['Sup 1']:,.0f}</span></div>", unsafe_allow_html=True)
-                         st.markdown(f"<div class='static-card'><span class='static-label'>Sup 2</span><span class='static-val' style='color:#00E676'>{static_lvls['Sup 2']:,.0f}</span></div>", unsafe_allow_html=True)
+                    # --- NEW: Strategic Support Logic for Bitkub ---
+                    st.markdown("#### 🧠 AI Strategic Support (แผนการรับของ - THB)")
+                    # คำนวณ Strategic Level จากราคา Bitkub โดยตรง
+                    bk_strat_levels, bk_step = calculate_strategic_supports(last)
+                    
+                    for lvl in bk_strat_levels:
+                        l_gap = ((last - lvl['price']) / last) * 100
+                        is_near = "ใกล้ถึงแล้ว! 🚨" if l_gap < 1.0 else f"อีก {l_gap:.2f}%"
+                        
+                        bk_html_card = f"""
+<div style="background: linear-gradient(145deg, #1a1a1a, #111); border: 1px solid #333; border-left: 6px solid {lvl['color']}; border-radius: 12px; padding: 15px; margin-bottom: 10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <div style="font-size:1rem; font-weight:bold; color:{lvl['color']};">{lvl['name']}</div>
+            <div style="font-size:1.6rem; font-weight:900; color:#fff;">{lvl['price']:,.0f}</div>
+        </div>
+        <div style="text-align:right;">
+             <span style="font-size:0.8rem; color:#888;">{is_near}</span><br>
+             <span style="background:{lvl['color']}20; color:{lvl['color']}; padding:3px 10px; border-radius:10px; font-weight:bold; font-size:0.8rem;">{lvl['alloc']}</span>
+        </div>
+    </div>
+</div>
+"""
+                        st.markdown(bk_html_card, unsafe_allow_html=True)
                     
                     st.markdown("---")
                     
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        st.markdown("#### 🤖 Intraday Levels")
-                        for l in ai_bk['levels']:
-                            cls = "sr-res" if l['type']=='res' else "sr-sup" if l['type']=='sup' else "sr-piv"
-                            st.markdown(f"<div class='sr-card {cls}'><b>{l['name']}</b><span>{l['price']:,.0f}</span></div>", unsafe_allow_html=True)
-                    with c2:
-                        st.markdown("#### 📐 Golden Zone")
-                        st.info(f"**Bottom:** {ai_bk['fib']['bot']:,.0f}\n\n**Top:** {ai_bk['fib']['top']:,.0f}")
-                        with st.expander("ℹ️ Golden Zone คืออะไร?"):
-                            st.write("""
-                            **Golden Zone (Fibonacci Golden Pocket)** คือโซนราคาระหว่าง **61.8%** และ **38.2%** ของช่วงราคา High-Low ในรอบ 24 ชั่วโมงที่ผ่านมา
-                            
-                            *   **หากราคาอยู่เหนือโซนนี้:** มีแนวโน้มจะขึ้นต่อ (Bullish)
-                            *   **หากราคาหลุดโซนนี้:** มีแนวโน้มจะลงต่อ (Bearish)
-                            *   **ใช้เป็นแนวรับ/ต้าน:** โซนนี้มักมีนัยยะสำคัญในการกลับตัวของราคา
-                            """)
+                    div_s1, div_s2 = st.columns(2)
+                    with div_s1:
+                        st.markdown("#### 🧱 Static S/R")
+                        st.markdown(f"<div class='static-card'><span class='static-label'>Res 1</span><span class='static-val' style='color:#FF5252'>{static_lvls['Res 1']:,.0f}</span></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='static-card'><span class='static-label'>Sup 1</span><span class='static-val' style='color:#69F0AE'>{static_lvls['Sup 1']:,.0f}</span></div>", unsafe_allow_html=True)
+                    with div_s2:
+                        st.markdown("#### 🤖 Intraday")
+                        st.markdown(f"<div class='sr-card sr-res'><b>R1</b><span>{ai_bk['levels'][1]['price']:,.0f}</span></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='sr-card sr-sup'><b>S1</b><span>{ai_bk['levels'][3]['price']:,.0f}</span></div>", unsafe_allow_html=True)
+
+                    with st.expander("ℹ️ Bitkub Golden Zone"):
+                        st.info(f"**Zone:** {ai_bk['fib']['bot']:,.0f} - {ai_bk['fib']['top']:,.0f}")
+
                 else: st.error("ไม่พบข้อมูล")
             else: st.warning("Connecting...")
         
