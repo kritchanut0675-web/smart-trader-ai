@@ -696,7 +696,7 @@ if symbol:
                 </div>
                 """, unsafe_allow_html=True)
 
-        # 6. S/R Dynamic (UPDATED V2)
+        # 6. S/R Dynamic (FIXED INDENTATION)
         with tabs[5]:
             # --- Updated: Strategic Support & AI Allocator ---
             st.markdown("### 🧠 AI Strategic Support (วางแผนการรับของ)")
@@ -708,14 +708,14 @@ if symbol:
             
             # Advice Header
             st.markdown(f"""
-            <div style="background:rgba(0, 229, 255, 0.1); padding:15px; border-radius:10px; border-left:4px solid #00E5FF; margin-bottom:20px;">
-                <h4 style="margin:0; color:#00E5FF;">💡 AI Strategy Advisor</h4>
-                <p style="margin:5px 0 0 0; color:#ddd;">
-                    ราคาปัจจุบันห่างจากแนวรับแรก <b>{gap_pct:.2f}%</b> (Step: {step_size:,.2f})<br>
-                    แนะนำให้แบ่งไม้ซื้อตามระดับแนวรับเพื่อบริหารต้นทุน (DCA/Grid Trading)
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+<div style="background:rgba(0, 229, 255, 0.1); padding:15px; border-radius:10px; border-left:4px solid #00E5FF; margin-bottom:20px;">
+<h4 style="margin:0; color:#00E5FF;">💡 AI Strategy Advisor</h4>
+<p style="margin:5px 0 0 0; color:#ddd;">
+ราคาปัจจุบันห่างจากแนวรับแรก <b>{gap_pct:.2f}%</b> (Step: {step_size:,.2f})<br>
+แนะนำให้แบ่งไม้ซื้อตามระดับแนวรับเพื่อบริหารต้นทุน (DCA/Grid Trading)
+</p>
+</div>
+""", unsafe_allow_html=True)
 
             # Loop สร้าง Card 3 ระดับ
             for lvl in strat_levels:
@@ -723,41 +723,29 @@ if symbol:
                 l_gap = ((curr - lvl['price']) / curr) * 100
                 is_near = "ใกล้ถึงแล้ว! 🚨" if l_gap < 1.0 else f"อีก {l_gap:.2f}%"
                 
-                st.markdown(f"""
-                <div style="
-                    background: linear-gradient(145deg, #1a1a1a, #111);
-                    border: 1px solid #333; border-left: 6px solid {lvl['color']};
-                    border-radius: 15px; padding: 20px; margin-bottom: 15px;
-                    position: relative; overflow: hidden;
-                ">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <div>
-                            <div style="font-size:1.1rem; font-weight:bold; color:{lvl['color']}; text-transform:uppercase; margin-bottom:5px;">
-                                {lvl['name']}
-                            </div>
-                            <div style="font-size:2rem; font-weight:900; color:#fff; line-height:1;">
-                                {lvl['price']:,.2f}
-                            </div>
-                            <div style="font-size:0.9rem; color:#888; margin-top:5px;">📉 ระยะห่าง: {is_near}</div>
-                        </div>
-                        <div style="text-align:right;">
-                            <span style="background:{lvl['color']}20; color:{lvl['color']}; padding:5px 12px; border-radius:20px; font-weight:bold; font-size:0.9rem;">
-                                แนะนำ: {lvl['alloc']}
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-top:15px; padding-top:15px; border-top:1px solid rgba(255,255,255,0.1);">
-                        <div style="font-weight:600; color:#eee; font-size:1rem;">{lvl['action']}</div>
-                        <div style="font-size:0.9rem; color:#aaa;">{lvl['desc']}</div>
-                    </div>
-                    
-                    <!-- Progress Bar Simulation -->
-                    <div style="margin-top:10px; background:#333; height:6px; border-radius:3px; width:100%;">
-                        <div style="width:{lvl['bar']}%; background:{lvl['color']}; height:100%; border-radius:3px; box-shadow: 0 0 10px {lvl['color']};"></div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                # FIXED HTML STRING INDENTATION HERE
+                html_content = f"""
+<div style="background: linear-gradient(145deg, #1a1a1a, #111); border: 1px solid #333; border-left: 6px solid {lvl['color']}; border-radius: 15px; padding: 20px; margin-bottom: 15px; position: relative; overflow: hidden;">
+<div style="display:flex; justify-content:space-between; align-items:flex-start;">
+<div>
+<div style="font-size:1.1rem; font-weight:bold; color:{lvl['color']}; text-transform:uppercase; margin-bottom:5px;">{lvl['name']}</div>
+<div style="font-size:2rem; font-weight:900; color:#fff; line-height:1;">{lvl['price']:,.2f}</div>
+<div style="font-size:0.9rem; color:#888; margin-top:5px;">📉 ระยะห่าง: {is_near}</div>
+</div>
+<div style="text-align:right;">
+<span style="background:{lvl['color']}20; color:{lvl['color']}; padding:5px 12px; border-radius:20px; font-weight:bold; font-size:0.9rem;">แนะนำ: {lvl['alloc']}</span>
+</div>
+</div>
+<div style="margin-top:15px; padding-top:15px; border-top:1px solid rgba(255,255,255,0.1);">
+<div style="font-weight:600; color:#eee; font-size:1rem;">{lvl['action']}</div>
+<div style="font-size:0.9rem; color:#aaa;">{lvl['desc']}</div>
+</div>
+<div style="margin-top:10px; background:#333; height:6px; border-radius:3px; width:100%;">
+<div style="width:{lvl['bar']}%; background:{lvl['color']}; height:100%; border-radius:3px; box-shadow: 0 0 10px {lvl['color']};"></div>
+</div>
+</div>
+"""
+                st.markdown(html_content, unsafe_allow_html=True)
             
             st.markdown("---")
 
