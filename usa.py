@@ -168,6 +168,61 @@ def get_stock_info(symbol):
     try: return yf.Ticker(symbol).info
     except: return None
 
+# --- NEW: Strategic Support Logic (3 Levels + Allocation) ---
+def calculate_strategic_supports(price):
+    # 1. กำหนด Step การขยับราคาตามช่วงราคาปัจจุบัน
+    if price > 2000000: step = 50000      # BTC (THB)
+    elif price > 100000: step = 10000     # ETH (THB) / YCC
+    elif price > 50000: step = 2000       # Big Cap Crypto
+    elif price > 10000: step = 1000       # Gold / SET Index
+    elif price > 1000: step = 100         # High price Stock
+    elif price > 100: step = 10           # Mid price Stock
+    elif price > 10: step = 1             # Low price Stock
+    elif price > 1: step = 0.1            # Penny Stock
+    else: step = 0.01
+
+    # 2. คำนวณหาราคาฐาน (Round Number)
+    base = (price // step) * step
+    
+    # กรณีราคาปัจจุบันจ่อแนวรับมากเกินไป (< 0.5% ของ step) ให้ขยับฐานลงไปอีกขั้น
+    if (price - base) < (step * 0.05):
+        base = base - step
+
+    # 3. กำหนด 3 ระดับ และ AI Suggestion
+    levels = [
+        {
+            "name": "🛡️ แนวรับแรก (First Sup)", 
+            "price": base, 
+            "type": "testing",
+            "desc": "แนวรับระยะสั้น รับความเสี่ยงได้",
+            "action": "ไม้ที่ 1: ซื้อแหย่/เก็งกำไร",
+            "alloc": "20%",
+            "color": "#FFD600", # เหลือง
+            "bar": 20
+        },
+        {
+            "name": "🧠 แนวรับจิตวิทยา (Psych Sup)", 
+            "price": base - step, 
+            "type": "accumulate",
+            "desc": "แนวรับสำคัญ ตัวเลขกลมๆ",
+            "action": "ไม้ที่ 2: เริ่มสะสม/ถัวเฉลี่ย",
+            "alloc": "30%",
+            "color": "#FF9100", # ส้ม
+            "bar": 50
+        },
+        {
+            "name": "💎 แนวรับแข็งแกร่ง (Strong Sup)", 
+            "price": base - (step * 2.5), # ให้ระยะห่างขึ้นหน่อยเพื่อความปลอดภัย
+            "type": "value",
+            "desc": "โซนปลอดภัย ราคาถูกมาก (Deep Value)",
+            "action": "ไม้ที่ 3: ซื้อลงทุน/จัดหนัก",
+            "alloc": "50%",
+            "color": "#00E676", # เขียว
+            "bar": 100
+        }
+    ]
+    return levels, step
+
 # --- AI Guru Analysis Logic ---
 def analyze_stock_guru(info, setup, symbol):
     pe = info.get('trailingPE')
@@ -364,7 +419,7 @@ def generate_dynamic_insight(price, pivots, dynamics):
     act = f"⚠️ ราคากำลังทดสอบแนว **{n_name}** ({n_price:,.2f}) ระยะห่างเพียง {dist_pct:.2f}%" if dist_pct < 0.8 else f"มีพื้นที่วิ่ง (Room to run) ไปหา **{n_name}** ({n_price:,.2f})"
     return msg, col, icon, act
 
-# --- NEW: Static Analyst Logic ---
+# --- Bitkub / Static Analysis ---
 def analyze_bitkub_static_guru(last, static_levels):
     r1 = static_levels['Res 1']
     s1 = static_levels['Sup 1']
@@ -397,7 +452,6 @@ def analyze_bitkub_static_guru(last, static_levels):
     return verdict, color, desc, strategy
 
 def calculate_static_round_numbers(price):
-    # ปรับ Logic ให้รองรับทั้งหุ้นเล็กและหุ้นใหญ่
     if price > 2000000: step = 50000
     elif price > 100000: step = 10000
     elif price > 10000: step = 1000
@@ -642,47 +696,68 @@ if symbol:
                 </div>
                 """, unsafe_allow_html=True)
 
-        # 6. S/R Dynamic (UPDATED)
+        # 6. S/R Dynamic (UPDATED V2)
         with tabs[5]:
-            # --- ส่วนที่เพิ่มใหม่: Static Psychological & AI Verdict ---
-            st.markdown("### 🧠 AI Psychology Analysis")
+            # --- Updated: Strategic Support & AI Allocator ---
+            st.markdown("### 🧠 AI Strategic Support (วางแผนการรับของ)")
             
-            # คำนวณแนวรับต้านจิตวิทยา
-            static_lvls = calculate_static_round_numbers(curr)
-            # เรียกใช้ Logic วิเคราะห์ (ใช้ Logic เดียวกับ Bitkub)
-            s_verd, s_col, s_desc, s_strat = analyze_bitkub_static_guru(curr, static_lvls)
+            strat_levels, step_size = calculate_strategic_supports(curr)
             
-            # เลือกไอคอนให้ตรงกับสถานะ
-            if "DEFENDING" in s_verd: s_icon = "🛡️"
-            elif "BREAKOUT" in s_verd: s_icon = "🚀"
-            elif "BREAKDOWN" in s_verd: s_icon = "🩸"
-            else: s_icon = "⚔️"
-
-            # แสดงผล Insight Box (ตามภาพที่ต้องการ)
+            # คำนวณระยะห่างจากราคาปัจจุบันถึงแนวรับแรก
+            gap_pct = ((curr - strat_levels[0]['price']) / curr) * 100
+            
+            # Advice Header
             st.markdown(f"""
-            <div class='ai-insight-box' style='border-color:{s_col}; margin-bottom:20px; box-shadow: 0 0 20px {s_col}20;'>
-                <div style="display:flex; align-items:center; gap:15px; margin-bottom:15px;">
-                    <span style="font-size:3rem;">{s_icon}</span>
-                    <div>
-                        <h3 style="margin:0; color:{s_col}; font-size:1.5rem; text-transform:uppercase;">{s_verd}</h3>
-                        <p style="color:#ddd; margin:5px 0 0 0; font-size:1.1rem;">{s_desc}</p>
-                    </div>
-                </div>
-                <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:12px; border-left:4px solid {s_col};">
-                    <b style="color:#00E5FF; font-size:1.05rem;">💡 Strategy:</b> <span style="color:#eee; line-height:1.6;">{s_strat}</span>
-                </div>
+            <div style="background:rgba(0, 229, 255, 0.1); padding:15px; border-radius:10px; border-left:4px solid #00E5FF; margin-bottom:20px;">
+                <h4 style="margin:0; color:#00E5FF;">💡 AI Strategy Advisor</h4>
+                <p style="margin:5px 0 0 0; color:#ddd;">
+                    ราคาปัจจุบันห่างจากแนวรับแรก <b>{gap_pct:.2f}%</b> (Step: {step_size:,.2f})<br>
+                    แนะนำให้แบ่งไม้ซื้อตามระดับแนวรับเพื่อบริหารต้นทุน (DCA/Grid Trading)
+                </p>
             </div>
             """, unsafe_allow_html=True)
 
-            # แสดงผล Grid แนวรับต้านจิตวิทยา (Static Levels)
-            st.markdown("#### 🧱 Static Psychological Levels (แนวรับต้านจิตวิทยา)")
-            col_s1, col_s2 = st.columns(2)
-            with col_s1:
-                    st.markdown(f"<div class='static-card'><span class='static-label'>Res 2</span><span class='static-val' style='color:#FF1744'>{static_lvls['Res 2']:,.2f}</span></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='static-card'><span class='static-label'>Res 1</span><span class='static-val' style='color:#FF5252'>{static_lvls['Res 1']:,.2f}</span></div>", unsafe_allow_html=True)
-            with col_s2:
-                    st.markdown(f"<div class='static-card'><span class='static-label'>Sup 1</span><span class='static-val' style='color:#69F0AE'>{static_lvls['Sup 1']:,.2f}</span></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='static-card'><span class='static-label'>Sup 2</span><span class='static-val' style='color:#00E676'>{static_lvls['Sup 2']:,.2f}</span></div>", unsafe_allow_html=True)
+            # Loop สร้าง Card 3 ระดับ
+            for lvl in strat_levels:
+                # คำนวณ Gap ของแต่ละ Level
+                l_gap = ((curr - lvl['price']) / curr) * 100
+                is_near = "ใกล้ถึงแล้ว! 🚨" if l_gap < 1.0 else f"อีก {l_gap:.2f}%"
+                
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(145deg, #1a1a1a, #111);
+                    border: 1px solid #333; border-left: 6px solid {lvl['color']};
+                    border-radius: 15px; padding: 20px; margin-bottom: 15px;
+                    position: relative; overflow: hidden;
+                ">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <div style="font-size:1.1rem; font-weight:bold; color:{lvl['color']}; text-transform:uppercase; margin-bottom:5px;">
+                                {lvl['name']}
+                            </div>
+                            <div style="font-size:2rem; font-weight:900; color:#fff; line-height:1;">
+                                {lvl['price']:,.2f}
+                            </div>
+                            <div style="font-size:0.9rem; color:#888; margin-top:5px;">📉 ระยะห่าง: {is_near}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <span style="background:{lvl['color']}20; color:{lvl['color']}; padding:5px 12px; border-radius:20px; font-weight:bold; font-size:0.9rem;">
+                                แนะนำ: {lvl['alloc']}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top:15px; padding-top:15px; border-top:1px solid rgba(255,255,255,0.1);">
+                        <div style="font-weight:600; color:#eee; font-size:1rem;">{lvl['action']}</div>
+                        <div style="font-size:0.9rem; color:#aaa;">{lvl['desc']}</div>
+                    </div>
+                    
+                    <!-- Progress Bar Simulation -->
+                    <div style="margin-top:10px; background:#333; height:6px; border-radius:3px; width:100%;">
+                        <div style="width:{lvl['bar']}%; background:{lvl['color']}; height:100%; border-radius:3px; box-shadow: 0 0 10px {lvl['color']};"></div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
             
             st.markdown("---")
 
@@ -693,25 +768,14 @@ if symbol:
             if pivots and dynamic:
                 msg, col, icon, act = generate_dynamic_insight(curr, pivots, dynamic)
                 
-                # Dynamic Insight Box (ย่อขนาดลงเล็กน้อยเพื่อให้เด่นน้อยกว่า Static ด้านบน)
-                st.markdown(f"""
-                <div class='ai-insight-box' style='border-color:{col}; border-width:1px; margin-bottom:25px;'>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span style="font-size:1.5rem;">{icon}</span>
-                        <h3 style='margin:0; color:{col}; font-size:1.2rem;'>Dynamic Trend: {msg}</h3>
-                    </div>
-                    <p style='font-size:1rem; color:#aaa; margin-top:5px; margin-left:35px;'>{act}</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
                 c1, c2 = st.columns(2)
                 with c1:
-                    st.markdown("#### 🎯 Classic Pivot Points")
+                    st.markdown("#### 🎯 Pivot Points (Day Trading)")
                     for k, v in pivots.items():
                         cls = "sr-res" if "R" in k else "sr-sup" if "S" in k else "sr-piv"
                         st.markdown(f"<div class='sr-card {cls}'><b>{k}</b><span>{v:,.2f}</span></div>", unsafe_allow_html=True)
                 with c2:
-                    st.markdown("#### 🌊 Dynamic Levels (EMA/BB)")
+                    st.markdown("#### 🌊 Dynamic Levels (EMA/Trend)")
                     for k, v in dynamic.items():
                         if k!="Current":
                             dist = ((curr-v)/v)*100
