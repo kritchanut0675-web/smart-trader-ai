@@ -33,7 +33,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-if 'symbol' not in st.session_state: st.session_state.symbol = 'RKLB' # Default to test fix
+if 'symbol' not in st.session_state: st.session_state.symbol = 'RKLB'
 
 def set_symbol(sym): st.session_state.symbol = sym
 
@@ -772,6 +772,7 @@ if symbol:
             strat_levels, step_size = calculate_strategic_supports(curr, setup)
             gap_pct = ((curr - strat_levels[0]['price']) / curr) * 100
             
+            # FIXED HEADER
             st.markdown(f"""
 <div style="background:rgba(0, 229, 255, 0.1); padding:15px; border-radius:10px; border-left:4px solid #00E5FF; margin-bottom:20px;">
 <h4 style="margin:0; color:#00E5FF;">💡 AI Strategy Advisor</h4>
@@ -786,6 +787,7 @@ if symbol:
                 l_gap = ((curr - lvl['price']) / curr) * 100
                 is_near = "ใกล้ถึงแล้ว! 🚨" if l_gap < 1.0 else f"อีก {l_gap:.2f}%"
                 
+                # FIXED CARD (No Indentation)
                 html_content = f"""
 <div style="background: linear-gradient(145deg, #1a1a1a, #111); border: 1px solid #333; border-left: 6px solid {lvl['color']}; border-radius: 15px; padding: 20px; margin-bottom: 15px; position: relative; overflow: hidden;">
 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -829,50 +831,56 @@ if symbol:
                             cl = "#00E676" if curr > v else "#FF1744"
                             st.markdown(f"<div class='sr-card' style='border-left:4px solid {cl}; background:rgba({255 if cl=='#FF1744' else 0}, {230 if cl=='#00E676' else 23}, {118 if cl=='#00E676' else 68}, 0.1);'><span>{k}</span><div style='text-align:right;'>{v:,.2f}<br><small style='color:{cl}'>{dist:+.2f}%</small></div></div>", unsafe_allow_html=True)
 
-        # 7. AI Guru (UPDATED: Handle No Fundamentals)
+        # 7. AI Guru (FIXED INDENTATION)
         with tabs[6]:
             st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
-            
-            # FIXED: Always run analyze_stock_guru even if info is None
-            guru = analyze_stock_guru(info, setup, symbol)
-            strat_lvls, _ = calculate_strategic_supports(curr, setup)
-            why_title, why_desc, why_color, why_icon = generate_ai_trade_reasoning(curr, setup, strat_lvls, guru['val_score'])
+            if info:
+                guru = analyze_stock_guru(info, setup, symbol)
+                strat_lvls, _ = calculate_strategic_supports(curr, setup)
+                why_title, why_desc, why_color, why_icon = generate_ai_trade_reasoning(curr, setup, strat_lvls, guru['val_score'])
 
-            st.markdown(f"""
-            <div class='ai-insight-box' style='border:2px solid {guru['color']}; text-align:center; margin-bottom:20px;'>
-                <h1 style='color:{guru['color']}; font-size:3rem; margin:0;'>{guru['verdict']}</h1>
-                <div style="margin:20px 0; background:#333; border-radius:10px; height:10px; width:100%;">
-                    <div style="width:{guru['val_score']*10}%; background:{guru['color']}; height:100%; border-radius:10px;"></div>
-                </div>
-                <p style='font-size:1.1rem; color:#ccc;'>Valuation Score: {guru['val_score']}/10</p>
-            </div>
-            
-            <div class='ai-insight-box' style='border-color:{why_color}; background:rgba(0,0,0,0.3); margin-bottom:20px;'>
-                <div style="display:flex; gap:15px; align-items:flex-start;">
-                    <span style="font-size:2.5rem;">{why_icon}</span>
-                    <div>
-                        <h3 style="margin:0; color:{why_color};">{why_title}</h3>
-                        <p style="margin:5px 0 0 0; font-size:1.1rem; color:#ddd; line-height:1.5;">{why_desc}</p>
-                    </div>
-                </div>
-            </div>
+                # FIXED: No indentation in HTML strings
+                st.markdown(f"""
+<div class='ai-insight-box' style='border:2px solid {guru['color']}; text-align:center; margin-bottom:20px;'>
+<h1 style='color:{guru['color']}; font-size:3rem; margin:0;'>{guru['verdict']}</h1>
+<div style="margin:20px 0; background:#333; border-radius:10px; height:10px; width:100%;">
+<div style="width:{guru['val_score']*10}%; background:{guru['color']}; height:100%; border-radius:10px;"></div>
+</div>
+<p style='font-size:1.1rem; color:#ccc;'>Valuation Score: {guru['val_score']}/10</p>
+</div>
+""", unsafe_allow_html=True)
+                
+                st.markdown(f"""
+<div class='ai-insight-box' style='border-color:{why_color}; background:rgba(0,0,0,0.3); margin-bottom:20px;'>
+<div style="display:flex; gap:15px; align-items:flex-start;">
+<span style="font-size:2.5rem;">{why_icon}</span>
+<div>
+<h3 style="margin:0; color:{why_color};">{why_title}</h3>
+<p style="margin:5px 0 0 0; font-size:1.1rem; color:#ddd; line-height:1.5;">{why_desc}</p>
+</div>
+</div>
+</div>
+""", unsafe_allow_html=True)
 
-            <div class='ai-article'>
-                <h4 style='margin-top:0; color:#fff;'>📝 บทวิเคราะห์โดย AI (AI Analyst Report)</h4>
-                {guru['article']}
-            </div>
-            """, unsafe_allow_html=True)
-            
-            c1, c2 = st.columns(2)
-            with c1:
-                st.markdown("#### 🏢 Quality Score (พื้นฐาน)")
-                for r in guru['reasons_q']:
-                    st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
-            with c2:
-                for r in guru['reasons_v']:
-                    st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
+                st.markdown(f"""
+<div class='ai-article'>
+<h4 style='margin-top:0; color:#fff;'>📝 บทวิเคราะห์โดย AI (AI Analyst Report)</h4>
+{guru['article']}
+</div>
+""", unsafe_allow_html=True)
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.markdown("#### 🏢 Quality Score (พื้นฐาน)")
+                    for r in guru['reasons_q']:
+                        st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
+                with c2:
+                    for r in guru['reasons_v']:
+                        st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
+            else:
+                st.info("⚠️ ไม่สามารถวิเคราะห์ได้ (ไม่มีข้อมูลพื้นฐาน/งบการเงิน) สำหรับสินทรัพย์นี้")
 
-        # 8. Bitkub AI
+        # 8. Bitkub AI (FIXED INDENTATION)
         with tabs[7]:
             bk_sel = st.radio("เลือกเหรียญ (THB)", ["BTC", "ETH"], horizontal=True)
             if bk_data:
@@ -895,6 +903,7 @@ if symbol:
                     bk_strat_levels, bk_step = calculate_strategic_supports(last, None)
                     bk_gap_pct = ((last - bk_strat_levels[0]['price']) / last) * 100
                     
+                    # FIXED HEADER
                     st.markdown(f"""
 <div style="background:rgba(0, 229, 255, 0.1); padding:15px; border-radius:10px; border-left:4px solid #00E5FF; margin-bottom:20px;">
 <h4 style="margin:0; color:#00E5FF;">💡 AI Strategy Advisor (THB)</h4>
@@ -909,6 +918,7 @@ if symbol:
                         l_gap = ((last - lvl['price']) / last) * 100
                         is_near = "ใกล้ถึงแล้ว! 🚨" if l_gap < 1.0 else f"อีก {l_gap:.2f}%"
                         
+                        # FIXED CARD
                         bk_html_card = f"""
 <div style="background: linear-gradient(145deg, #1a1a1a, #111); border: 1px solid #333; border-left: 6px solid {lvl['color']}; border-radius: 12px; padding: 15px; margin-bottom: 10px;">
 <div style="display:flex; justify-content:space-between; align-items:center;">
