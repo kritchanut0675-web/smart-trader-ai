@@ -159,34 +159,42 @@ st.markdown("""
 
 # --- 3. Functions ---
 
+# --- [MODIFIED] ฟังก์ชันดึงกราฟ: ลบ Session, ใช้ ticker.history ก่อน, แก้ MultiIndex ---
 @st.cache_data(ttl=300)
 def get_market_data(symbol, period, interval):
-    try: 
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        })
-        # Try yf.download first
-        df = yf.download(symbol, period=period, interval=interval, progress=False, session=session)
-        if not df.empty and len(df) > 0:
-            if isinstance(df.columns, pd.MultiIndex):
-                try: df.columns = df.columns.get_level_values(0)
-                except: pass
-            if 'Close' in df.columns: return df
+    try:
+        # 1. ลองใช้ Ticker.history (เสถียรกว่าสำหรับการดึงรายตัว)
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period=period, interval=interval)
         
-        # Fallback to Ticker
-        ticker = yf.Ticker(symbol, session=session)
-        return ticker.history(period=period, interval=interval)
-    except: return pd.DataFrame()
+        # 2. ถ้าไม่พบข้อมูล ให้ลอง Fallback ไปใช้ yf.download
+        if df.empty:
+            df = yf.download(symbol, period=period, interval=interval, progress=False)
+        
+        # 3. จัดการกรณีข้อมูลมาเป็น MultiIndex (yfinance รุ่นใหม่)
+        # ตัวอย่าง: Columns เป็น ('Close', 'GOOGL') แทนที่จะเป็น 'Close'
+        if not df.empty and isinstance(df.columns, pd.MultiIndex):
+            try:
+                # ดึงเฉพาะ Level 0 (Close, Open, High, Low)
+                df.columns = df.columns.get_level_values(0)
+            except:
+                pass
+                
+        # 4. ตรวจสอบว่ามีข้อมูล 'Close' จริงๆ หรือไม่
+        if not df.empty and 'Close' in df.columns and len(df) > 0:
+            return df
+            
+        return pd.DataFrame()
+    except Exception as e:
+        # st.error(f"Data Fetch Error: {e}") # Debug only
+        return pd.DataFrame()
 
+# --- [MODIFIED] ฟังก์ชันดึงพื้นฐาน: ลบ Session ออกเช่นกัน ---
 @st.cache_data(ttl=3600)
 def get_stock_info(symbol):
     try:
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        })
-        ticker = yf.Ticker(symbol, session=session)
+        # ไม่ใช้ requests.Session เพื่อให้ library จัดการเอง
+        ticker = yf.Ticker(symbol)
         info = ticker.info
         if info and len(info) > 5: return info
         return {} 
