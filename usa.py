@@ -162,34 +162,35 @@ st.markdown("""
 @st.cache_data(ttl=300)
 def get_market_data(symbol, period, interval):
     try: 
-        # Add User-Agent check here as well implicitly via Ticker
-        return yf.Ticker(symbol).history(period=period, interval=interval)
+        # ใช้ requests session เพื่อเพิ่ม User-Agent ในการดึงกราฟด้วย
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        })
+        ticker = yf.Ticker(symbol, session=session)
+        return ticker.history(period=period, interval=interval)
     except: return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
 def get_stock_info(symbol):
-    try: 
-        # --- FIX: Add User-Agent Session ---
+    try:
+        # สร้าง Session พร้อม User-Agent เพื่อหลอกว่าเป็น Browser (แก้ปัญหาไม่เจอข้อมูล)
         session = requests.Session()
         session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
         
-        # Pass the session to the Ticker
         ticker = yf.Ticker(symbol, session=session)
-        
-        # Fetch info
         info = ticker.info
         
-        # Check validity (sometimes yfinance returns empty dict)
+        # ตรวจสอบความถูกต้องของข้อมูล
         if info and len(info) > 5:
             return info
-        return None
-    except Exception as e: 
-        # print(f"Error: {e}") # Uncomment for debugging
-        return None
+        return {} # Return empty dict instead of None to prevent Errors
+    except: 
+        return {}
 
-# --- Sector Benchmark Function (ค่าเฉลี่ย P/E ของอุตสาหกรรม) ---
+# --- Sector Benchmark Function ---
 def get_sector_pe_benchmark(sector):
     benchmarks = {
         'Technology': 25, 
@@ -203,7 +204,7 @@ def get_sector_pe_benchmark(sector):
         'Real Estate': 30,
         'Utilities': 18
     }
-    return benchmarks.get(sector, 20) # ค่า Default คือ 20
+    return benchmarks.get(sector, 20) 
 
 # --- Logic Functions ---
 def calculate_strategic_supports(price, setup_data=None):
@@ -296,11 +297,13 @@ def generate_ai_trade_reasoning(price, setup, strat_levels, val_score):
     return reason_title, reason_desc, reason_color, reason_icon
 
 def analyze_stock_guru(info, setup, symbol):
-    if info is None: info = {}
+    # ป้องกัน error กรณี info เป็น None
+    if not info: info = {}
     
     pe = info.get('trailingPE')
     roe = info.get('returnOnEquity')
     
+    # กรณีไม่มี P/E (เช่น Crypto หรือดึงข้อมูลไม่ได้) ให้ใช้ Technical Analysis ล้วนๆ
     if pe is None:
         val_score = 5
         reasons_q = ["ℹ️ ไม่พบข้อมูล P/E (Switch to Technical Mode)"]
@@ -696,22 +699,22 @@ if symbol:
             c2.markdown(f"<div class='metric-box'><div class='metric-label'>Low (ต่ำสุด)</div><div class='metric-val' style='color:#FF1744'>{df['Low'].min():,.2f}</div></div>", unsafe_allow_html=True)
             c3.markdown(f"<div class='metric-box'><div class='metric-label'>Volume (ปริมาณ)</div><div class='metric-val' style='color:#E040FB'>{df['Volume'].iloc[-1]/1e6:.1f}M</div></div>", unsafe_allow_html=True)
             
-            # --- ส่วนที่ 3: Company Info & PE Analysis ---
+            # --- ส่วนที่ 3: Company Info & PE Analysis (ซ่อนถ้าไม่มีข้อมูล) ---
             if info:
-                st.markdown("---")
-                
                 # Data Preparation
                 sector = info.get('sector', 'Unknown')
                 pe = info.get('trailingPE')
                 
-                st.markdown(f"<h3 style='color:#00E5FF;'>📊 AI Valuation & P/E Analysis</h3>", unsafe_allow_html=True)
-                st.markdown(f"**Industry:** {sector}")
-                
-                c_pe1, c_pe2 = st.columns(2)
-                
-                # แสดงค่า P/E ของหุ้น
-                with c_pe1:
-                    if pe:
+                # ถ้ามี P/E ค่อยแสดงส่วนนี้
+                if pe:
+                    st.markdown("---")
+                    st.markdown(f"<h3 style='color:#00E5FF;'>📊 AI Valuation & P/E Analysis</h3>", unsafe_allow_html=True)
+                    st.markdown(f"**Industry:** {sector}")
+                    
+                    c_pe1, c_pe2 = st.columns(2)
+                    
+                    # แสดงค่า P/E ของหุ้น
+                    with c_pe1:
                         st.markdown(f"""
                         <div class='metric-box'>
                             <div class='metric-label'>P/E Ratio (ปัจจุบัน)</div>
@@ -719,12 +722,9 @@ if symbol:
                             <div style='color:#888; font-size:0.8rem;'>ระยะเวลาคืนทุนโดยประมาณ (ปี)</div>
                         </div>
                         """, unsafe_allow_html=True)
-                    else:
-                         st.markdown(f"<div class='metric-box'><div class='metric-label'>P/E Ratio</div><div class='metric-val'>N/A</div><div style='color:#888; font-size:0.8rem;'>ไม่มีข้อมูล หรือ ขาดทุน</div></div>", unsafe_allow_html=True)
 
-                # แสดง AI Comparison (เปรียบเทียบกับกลุ่มอุตสาหกรรม)
-                with c_pe2:
-                    if pe:
+                    # แสดง AI Comparison (เปรียบเทียบกับกลุ่มอุตสาหกรรม)
+                    with c_pe2:
                         avg_pe = get_sector_pe_benchmark(sector)
                         diff = ((pe - avg_pe) / avg_pe) * 100
                         
@@ -748,8 +748,6 @@ if symbol:
                             <div style='color:#ccc; font-size:0.9rem;'>Difference: {diff:+.1f}%</div>
                         </div>
                         """, unsafe_allow_html=True)
-                    else:
-                        st.info("ไม่สามารถเปรียบเทียบ P/E ได้ (เนื่องจากไม่มีข้อมูล P/E ของหุ้น)")
 
         # 3. AI News
         with tabs[2]:
@@ -885,27 +883,24 @@ if symbol:
             # --- Safety Check: ตรวจสอบว่า info เป็น None หรือไม่ ---
             safe_info = info if info else {}
 
-            # --- 1. Business Summary ---
-            summary = safe_info.get('longBusinessSummary', 'ไม่พบข้อมูลรายละเอียดธุรกิจ')
-            if HAS_TRANSLATOR:
-                try: summary = GoogleTranslator(source='auto', target='th').translate(summary[:2000])
-                except: pass
-            
-            st.info(f"**🏢 รู้จักกับ {symbol}:** {summary}")
+            # --- 1. Business Summary (แสดงเฉพาะเมื่อมีข้อมูล) ---
+            summary = safe_info.get('longBusinessSummary')
+            if summary:
+                if HAS_TRANSLATOR:
+                    try: summary = GoogleTranslator(source='auto', target='th').translate(summary[:2000])
+                    except: pass
+                
+                st.info(f"**🏢 รู้จักกับ {symbol}:** {summary}")
 
-            # --- 2. Sector Comparison (ฟีเจอร์ใหม่ที่เพิ่มเข้ามา) ---
-            # ดึง P/E และ Sector จาก yfinance info
+            # --- 2. Sector Comparison (แสดงเฉพาะเมื่อมีค่า P/E) ---
             sector = safe_info.get('sector', 'Unknown')
             pe = safe_info.get('trailingPE')
             
             if pe:
-                # เรียกใช้ฟังก์ชัน benchmark เพื่อหาค่าเฉลี่ย
                 avg_pe = get_sector_pe_benchmark(sector)
-                
-                # คำนวณส่วนต่างเป็นเปอร์เซ็นต์
                 diff_pct = ((pe - avg_pe) / avg_pe) * 100
                 
-                # ตรวจสอบสถานะ ถูก/แพง
+                # Determine status
                 if diff_pct > 15:
                     pe_status = "แพงกว่ากลุ่ม (Overvalued)"
                     pe_color = "#FF1744" # แดง
@@ -926,8 +921,6 @@ if symbol:
                 with col_pe3:
                      st.markdown(f"<div class='metric-box' style='border-left-color:{pe_color}'><div class='metric-label'>Verdict</div><div class='metric-val' style='color:{pe_color}; font-size:1.4rem;'>{pe_status}</div></div>", unsafe_allow_html=True)
                 st.markdown("---")
-            else:
-                 st.info("⚠️ ไม่สามารถเปรียบเทียบ P/E ได้ (ไม่พบข้อมูล P/E ของหุ้น)")
             
             # --- 3. Existing Guru Analysis ---
             guru = analyze_stock_guru(safe_info, setup, symbol)
