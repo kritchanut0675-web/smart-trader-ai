@@ -166,10 +166,12 @@ def get_market_data(symbol, period, interval):
 
 @st.cache_data(ttl=3600)
 def get_stock_info(symbol):
-    try: return yf.Ticker(symbol).info
+    try: 
+        # yfinance API call to get fundamental data (P/E, Sector, etc.)
+        return yf.Ticker(symbol).info
     except: return None
 
-# --- Sector Benchmark Function ---
+# --- Sector Benchmark Function (ค่าเฉลี่ย P/E ของอุตสาหกรรม) ---
 def get_sector_pe_benchmark(sector):
     benchmarks = {
         'Technology': 25, 
@@ -183,7 +185,7 @@ def get_sector_pe_benchmark(sector):
         'Real Estate': 30,
         'Utilities': 18
     }
-    return benchmarks.get(sector, 20) 
+    return benchmarks.get(sector, 20) # ค่า Default คือ 20
 
 # --- Logic Functions ---
 def calculate_strategic_supports(price, setup_data=None):
@@ -608,7 +610,9 @@ if symbol:
         
         setup = calculate_technical_setup(df)
         news = get_ai_analyzed_news_thai(symbol)
-        info = get_stock_info(symbol)
+        # --- ใช้ yfinance ดึงข้อมูลพื้นฐาน (รวม P/E) ---
+        info = get_stock_info(symbol) 
+        
         t_txt, n_txt, ai_sc, ai_vd = gen_ai_verdict(setup, news)
         
         if ai_sc >= 70: sc_col, sc_glow = "#00E676", "0, 230, 118"
@@ -658,7 +662,7 @@ if symbol:
             fig.update_layout(template='plotly_dark', height=550, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
 
-        # 2. Stats
+        # 2. Stats (Updated: Moved Bull/Bear Here + Added Info & PE)
         with tabs[1]:
             # --- ส่วนที่ 1: สถานะกระทิง/หมี (ย้ายมาที่นี่) ---
             st.markdown(f"""
@@ -860,10 +864,10 @@ if symbol:
         with tabs[6]:
             st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
             
-            # Use safe_info to prevent AttributeError if info is None
+            # --- Safety Check: ตรวจสอบว่า info เป็น None หรือไม่ ---
             safe_info = info if info else {}
 
-            # --- 1. Business Summary (NEW) ---
+            # --- 1. Business Summary ---
             summary = safe_info.get('longBusinessSummary', 'ไม่พบข้อมูลรายละเอียดธุรกิจ')
             if HAS_TRANSLATOR:
                 try: summary = GoogleTranslator(source='auto', target='th').translate(summary[:2000])
@@ -871,24 +875,28 @@ if symbol:
             
             st.info(f"**🏢 รู้จักกับ {symbol}:** {summary}")
 
-            # --- 2. Sector Comparison (NEW) ---
+            # --- 2. Sector Comparison (ฟีเจอร์ใหม่ที่เพิ่มเข้ามา) ---
+            # ดึง P/E และ Sector จาก yfinance info
             sector = safe_info.get('sector', 'Unknown')
             pe = safe_info.get('trailingPE')
             
             if pe:
+                # เรียกใช้ฟังก์ชัน benchmark เพื่อหาค่าเฉลี่ย
                 avg_pe = get_sector_pe_benchmark(sector)
+                
+                # คำนวณส่วนต่างเป็นเปอร์เซ็นต์
                 diff_pct = ((pe - avg_pe) / avg_pe) * 100
                 
-                # Determine status
+                # ตรวจสอบสถานะ ถูก/แพง
                 if diff_pct > 15:
                     pe_status = "แพงกว่ากลุ่ม (Overvalued)"
-                    pe_color = "#FF1744"
+                    pe_color = "#FF1744" # แดง
                 elif diff_pct < -15:
                     pe_status = "ถูกกว่ากลุ่ม (Undervalued)"
-                    pe_color = "#00E676"
+                    pe_color = "#00E676" # เขียว
                 else:
                     pe_status = "ราคาเหมาะสม (Fair Value)"
-                    pe_color = "#FFD600"
+                    pe_color = "#FFD600" # เหลือง
 
                 st.markdown("#### ⚖️ Price vs Sector (เปรียบเทียบความถูกแพง)")
                 col_pe1, col_pe2, col_pe3 = st.columns(3)
