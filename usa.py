@@ -860,8 +860,11 @@ if symbol:
         with tabs[6]:
             st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
             
+            # Use safe_info to prevent AttributeError if info is None
+            safe_info = info if info else {}
+
             # --- 1. Business Summary (NEW) ---
-            summary = info.get('longBusinessSummary', 'ไม่พบข้อมูลรายละเอียดธุรกิจ')
+            summary = safe_info.get('longBusinessSummary', 'ไม่พบข้อมูลรายละเอียดธุรกิจ')
             if HAS_TRANSLATOR:
                 try: summary = GoogleTranslator(source='auto', target='th').translate(summary[:2000])
                 except: pass
@@ -869,8 +872,8 @@ if symbol:
             st.info(f"**🏢 รู้จักกับ {symbol}:** {summary}")
 
             # --- 2. Sector Comparison (NEW) ---
-            sector = info.get('sector', 'Unknown')
-            pe = info.get('trailingPE')
+            sector = safe_info.get('sector', 'Unknown')
+            pe = safe_info.get('trailingPE')
             
             if pe:
                 avg_pe = get_sector_pe_benchmark(sector)
@@ -897,9 +900,10 @@ if symbol:
                 with col_pe3:
                      st.markdown(f"<div class='metric-box' style='border-left-color:{pe_color}'><div class='metric-label'>Verdict</div><div class='metric-val' style='color:{pe_color}; font-size:1.4rem;'>{pe_status}</div></div>", unsafe_allow_html=True)
                 st.markdown("---")
+            else:
+                 st.info("⚠️ ไม่สามารถเปรียบเทียบ P/E ได้ (ไม่พบข้อมูล P/E ของหุ้น)")
             
             # --- 3. Existing Guru Analysis ---
-            safe_info = info if info else {}
             guru = analyze_stock_guru(safe_info, setup, symbol)
             strat_lvls, _ = calculate_strategic_supports(curr, setup)
             why_title, why_desc, why_color, why_icon = generate_ai_trade_reasoning(curr, setup, strat_lvls, guru['val_score'])
