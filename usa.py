@@ -633,9 +633,26 @@ if symbol:
         elif ai_sc <= 30: sc_col, sc_glow = "#FF1744", "255, 23, 68"
         else: sc_col, sc_glow = "#FFD600", "255, 214, 0"
 
-        # Hero
+        # Hero (Updated with Bull/Bear Label)
+        # คำนวณสถานะ Bull/Bear
+        trend_status = "SIDEWAY"
+        trend_icon = "⚖️"
+        trend_color_css = "#FFD600"
+        
+        if "UPTREND" in setup['trend']:
+            trend_status = "BULLISH (กระทิง)"
+            trend_icon = "🐂"
+            trend_color_css = "#00E676" # เขียว
+        elif "DOWNTREND" in setup['trend']:
+            trend_status = "BEARISH (หมี)"
+            trend_icon = "🐻"
+            trend_color_css = "#FF1744" # แดง
+
         st.markdown(f"""
-        <div class="glass-card" style="border-top:5px solid {color};text-align:center;">
+        <div class="glass-card" style="border-top:5px solid {color};text-align:center; position:relative;">
+            <div style="position:absolute; top:10px; right:10px; background:{trend_color_css}20; border:1px solid {trend_color_css}; padding:5px 15px; border-radius:20px;">
+                <span style="color:{trend_color_css}; font-weight:bold; font-size:0.9rem;">{trend_icon} {trend_status}</span>
+            </div>
             <div style="font-size:3.5rem;font-weight:900;line-height:1;margin-bottom:10px;">{symbol}</div>
             <div style="font-size:3rem;color:{color};font-weight:bold;">{curr:,.2f}</div>
             <div style="background:rgba({sc_glow}, 0.2);padding:5px 20px;border-radius:20px;display:inline-block;margin-top:10px;">
@@ -662,14 +679,80 @@ if symbol:
             fig.update_layout(template='plotly_dark', height=550, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
 
-        # 2. Stats
+        # 2. Stats (Updated with P/E and AI Compare)
         with tabs[1]:
+            # แถวแรก: High, Low, Vol (คงเดิม)
             c1, c2, c3 = st.columns(3)
             c1.markdown(f"<div class='metric-box'><div class='metric-label'>High</div><div class='metric-val' style='color:#00E676'>{df['High'].max():,.2f}</div></div>", unsafe_allow_html=True)
             c2.markdown(f"<div class='metric-box'><div class='metric-label'>Low</div><div class='metric-val' style='color:#FF1744'>{df['Low'].min():,.2f}</div></div>", unsafe_allow_html=True)
             c3.markdown(f"<div class='metric-box'><div class='metric-label'>Vol</div><div class='metric-val' style='color:#E040FB'>{df['Volume'].iloc[-1]/1e6:.1f}M</div></div>", unsafe_allow_html=True)
             
             if info:
+                st.markdown("---")
+                
+                # ดึงข้อมูล Sector และ P/E
+                sector = info.get('sector', 'General')
+                pe = info.get('trailingPE')
+                
+                # แสดง Sector
+                st.markdown(f"<h4 style='color:#00E5FF'>🏢 Sector: {sector}</h4>", unsafe_allow_html=True)
+                
+                # ส่วนวิเคราะห์ P/E
+                col_pe1, col_pe2 = st.columns(2)
+                
+                # 1. แสดงค่า P/E ของหุ้น
+                with col_pe1:
+                    if pe:
+                        st.markdown(f"""
+                        <div class='metric-box' style='border-left-color: #E0E0E0;'>
+                            <div class='metric-label'>P/E RATIO (ปัจจุบัน)</div>
+                            <div class='metric-val'>{pe:.2f} เท่า</div>
+                            <small style='color:#888;'>ระยะเวลาคืนทุน (ปี)</small>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<div class='metric-box'><div class='metric-label'>P/E RATIO</div><div class='metric-val'>N/A</div><small>ไม่มีข้อมูล หรือ ขาดทุน</small></div>", unsafe_allow_html=True)
+                
+                # 2. AI Compare กับกลุ่มอุตสาหกรรม
+                with col_pe2:
+                    if pe:
+                        # ดึงค่า Benchmark
+                        avg_pe = get_sector_pe_benchmark(sector)
+                        
+                        # คำนวณความถูกแพง
+                        diff_pct = ((pe - avg_pe) / avg_pe) * 100
+                        
+                        if diff_pct > 15:
+                            comp_status = "แพงกว่ากลุ่ม (Expensive)"
+                            comp_color = "#FF1744" # แดง
+                            comp_icon = "🔺"
+                            advice = "ระวังการไล่ราคา"
+                        elif diff_pct < -15:
+                            comp_status = "ถูกกว่ากลุ่ม (Undervalued)"
+                            comp_color = "#00E676" # เขียว
+                            comp_icon = "🔻"
+                            advice = "น่าสนใจสะสม"
+                        else:
+                            comp_status = "ราคาเหมาะสม (Fair Price)"
+                            comp_color = "#FFD600" # เหลือง
+                            comp_icon = "⚖️"
+                            advice = "เป็นไปตามกลไกตลาด"
+
+                        st.markdown(f"""
+                        <div class='metric-box' style='border-left-color: {comp_color};'>
+                            <div class='metric-label'>AI SECTOR COMPARE (Avg {avg_pe})</div>
+                            <div class='metric-val' style='color:{comp_color}; font-size:1.6rem;'>
+                                {comp_icon} {comp_status}
+                            </div>
+                            <div style='color:#ccc; font-size:0.9rem; margin-top:5px;'>
+                                ต่างจากค่าเฉลี่ย {diff_pct:+.1f}% ({advice})
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.info("ไม่สามารถเปรียบเทียบได้ เนื่องจากไม่มีข้อมูล P/E (อาจเป็น Crypto หรือหุ้นขาดทุน)")
+
+                # แสดงคำอธิบายบริษัท (คงเดิม)
                 st.markdown("---")
                 summary = info.get('longBusinessSummary', 'No description available.')
                 if HAS_TRANSLATOR:
@@ -678,27 +761,8 @@ if symbol:
                         summary = translator.translate(summary[:2000])
                     except: pass
                 
-                with st.expander(f"🏢 เกี่ยวกับ {symbol} (คลิกเพื่ออ่าน)"):
+                with st.expander(f"ℹ️ เกี่ยวกับธุรกิจ {symbol} (อ่านเพิ่ม)"):
                     st.write(summary)
-                
-                sector = info.get('sector', 'Unknown')
-                pe = info.get('trailingPE')
-                
-                st.markdown(f"**Sector:** {sector}")
-                
-                c1, c2 = st.columns(2)
-                with c1:
-                    c1.markdown(f"<div class='metric-box'><div class='metric-label'>P/E Ratio</div><div class='metric-val'>{pe if pe else 'N/A'}</div></div>", unsafe_allow_html=True)
-                
-                with c2:
-                    if pe:
-                        avg_pe = get_sector_pe_benchmark(sector)
-                        diff = ((pe - avg_pe) / avg_pe) * 100
-                        status = "แพงกว่ากลุ่ม" if diff > 0 else "ถูกกว่ากลุ่ม"
-                        color = "#FF1744" if diff > 0 else "#00E676"
-                        st.markdown(f"<div class='metric-box' style='border-left-color:{color}'><div class='metric-label'>เทียบกลุ่ม ({avg_pe})</div><div class='metric-val' style='color:{color}; font-size:1.4rem'>{status} ({abs(diff):.1f}%)</div></div>", unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"<div class='metric-box'><div class='metric-label'>เทียบกลุ่ม</div><div class='metric-val' style='font-size:1.4rem'>N/A</div></div>", unsafe_allow_html=True)
 
         # 3. AI News
         with tabs[2]:
