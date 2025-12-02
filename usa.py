@@ -161,32 +161,53 @@ st.markdown("""
 
 @st.cache_data(ttl=300)
 def get_market_data(symbol, period, interval):
-    try: 
-        # ใช้ requests session เพื่อเพิ่ม User-Agent ในการดึงกราฟด้วย
+    # ปรับปรุงฟังก์ชันนี้ให้ลองดึงข้อมูลหลายวิธี (แก้ไขปัญหาไม่พบข้อมูลหุ้น)
+    try:
+        # สร้าง Session พร้อม User-Agent เพื่อหลอก Server
         session = requests.Session()
         session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
+        
+        # วิธีที่ 1: ลองใช้ yf.download (มักจะเสถียรกว่าสำหรับการดึงกราฟ)
+        df = yf.download(symbol, period=period, interval=interval, progress=False, session=session)
+        
+        # ตรวจสอบว่าได้ข้อมูลมาจริงไหม
+        if not df.empty and len(df) > 0:
+            # แก้ไขปัญหากรณี MultiIndex Columns ใน yfinance เวอร์ชันใหม่
+            if isinstance(df.columns, pd.MultiIndex):
+                try:
+                    df.columns = df.columns.get_level_values(0)
+                except: pass
+            
+            # เช็คว่ามีคอลัมน์สำคัญครบไหม
+            if 'Close' in df.columns:
+                return df
+
+        # วิธีที่ 2: ถ้าวิธีแรกไม่สำเร็จ ให้ลองใช้ Ticker Object
         ticker = yf.Ticker(symbol, session=session)
-        return ticker.history(period=period, interval=interval)
-    except: return pd.DataFrame()
+        df = ticker.history(period=period, interval=interval)
+        return df
+        
+    except Exception as e:
+        # print(f"Error fetching market data: {e}") # Debug only
+        return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
 def get_stock_info(symbol):
     try:
-        # สร้าง Session พร้อม User-Agent เพื่อหลอกว่าเป็น Browser (แก้ปัญหาไม่เจอข้อมูล)
+        # ใช้ Session เหมือนกันเพื่อป้องกันการโดนบล็อก
         session = requests.Session()
         session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
         
         ticker = yf.Ticker(symbol, session=session)
         info = ticker.info
         
-        # ตรวจสอบความถูกต้องของข้อมูล
         if info and len(info) > 5:
             return info
-        return {} # Return empty dict instead of None to prevent Errors
+        return {} 
     except: 
         return {}
 
@@ -297,13 +318,12 @@ def generate_ai_trade_reasoning(price, setup, strat_levels, val_score):
     return reason_title, reason_desc, reason_color, reason_icon
 
 def analyze_stock_guru(info, setup, symbol):
-    # ป้องกัน error กรณี info เป็น None
     if not info: info = {}
     
     pe = info.get('trailingPE')
     roe = info.get('returnOnEquity')
     
-    # กรณีไม่มี P/E (เช่น Crypto หรือดึงข้อมูลไม่ได้) ให้ใช้ Technical Analysis ล้วนๆ
+    # ถ้าไม่มี P/E ให้ข้ามการวิเคราะห์พื้นฐานไปเน้นเทคนิค
     if pe is None:
         val_score = 5
         reasons_q = ["ℹ️ ไม่พบข้อมูล P/E (Switch to Technical Mode)"]
