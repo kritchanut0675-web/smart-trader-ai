@@ -169,9 +169,8 @@ def get_stock_info(symbol):
     try: return yf.Ticker(symbol).info
     except: return None
 
-# --- NEW: Sector Benchmark Function ---
+# --- Sector Benchmark Function ---
 def get_sector_pe_benchmark(sector):
-    # ค่าเฉลี่ย P/E โดยประมาณของแต่ละอุตสาหกรรม (ใช้เพื่อเปรียบเทียบ)
     benchmarks = {
         'Technology': 25, 
         'Financial Services': 15, 
@@ -184,7 +183,7 @@ def get_sector_pe_benchmark(sector):
         'Real Estate': 30,
         'Utilities': 18
     }
-    return benchmarks.get(sector, 20) # Default 20 ถ้าหาไม่เจอ
+    return benchmarks.get(sector, 20) 
 
 # --- Logic Functions ---
 def calculate_strategic_supports(price, setup_data=None):
@@ -659,7 +658,7 @@ if symbol:
             fig.update_layout(template='plotly_dark', height=550, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
 
-        # 2. Stats (Updated: Moved Bull/Bear Here + Added Info & PE)
+        # 2. Stats
         with tabs[1]:
             # --- ส่วนที่ 1: สถานะกระทิง/หมี (ย้ายมาที่นี่) ---
             st.markdown(f"""
@@ -682,17 +681,6 @@ if symbol:
                 # Data Preparation
                 sector = info.get('sector', 'Unknown')
                 pe = info.get('trailingPE')
-                summary = info.get('longBusinessSummary', 'No description available.')
-                
-                # แปลสรุปธุรกิจเป็นไทย (ถ้ามี Translator)
-                if HAS_TRANSLATOR:
-                    try:
-                        translator = GoogleTranslator(source='auto', target='th')
-                        summary = translator.translate(summary[:2000]) # แปลเฉพาะ 2000 ตัวอักษรแรกเพื่อความเร็ว
-                    except: pass
-                
-                st.markdown(f"<h3 style='color:#00E5FF;'>🏢 Company Profile: {symbol}</h3>", unsafe_allow_html=True)
-                st.info(summary) 
                 
                 st.markdown(f"<h3 style='color:#00E5FF;'>📊 AI Valuation & P/E Analysis</h3>", unsafe_allow_html=True)
                 st.markdown(f"**Industry:** {sector}")
@@ -868,9 +856,49 @@ if symbol:
                             cl = "#00E676" if curr > v else "#FF1744"
                             st.markdown(f"<div class='sr-card' style='border-left:4px solid {cl}; background:rgba({255 if cl=='#FF1744' else 0}, {230 if cl=='#00E676' else 23}, {118 if cl=='#00E676' else 68}, 0.1);'><span>{k}</span><div style='text-align:right;'>{v:,.2f}<br><small style='color:{cl}'>{dist:+.2f}%</small></div></div>", unsafe_allow_html=True)
 
-        # 7. AI Guru
+        # 7. AI Guru (UPDATED TAB)
         with tabs[6]:
             st.markdown("### 🧠 AI Guru: Fundamental & Valuation")
+            
+            # --- 1. Business Summary (NEW) ---
+            summary = info.get('longBusinessSummary', 'ไม่พบข้อมูลรายละเอียดธุรกิจ')
+            if HAS_TRANSLATOR:
+                try: summary = GoogleTranslator(source='auto', target='th').translate(summary[:2000])
+                except: pass
+            
+            st.info(f"**🏢 รู้จักกับ {symbol}:** {summary}")
+
+            # --- 2. Sector Comparison (NEW) ---
+            sector = info.get('sector', 'Unknown')
+            pe = info.get('trailingPE')
+            
+            if pe:
+                avg_pe = get_sector_pe_benchmark(sector)
+                diff_pct = ((pe - avg_pe) / avg_pe) * 100
+                
+                # Determine status
+                if diff_pct > 15:
+                    pe_status = "แพงกว่ากลุ่ม (Overvalued)"
+                    pe_color = "#FF1744"
+                elif diff_pct < -15:
+                    pe_status = "ถูกกว่ากลุ่ม (Undervalued)"
+                    pe_color = "#00E676"
+                else:
+                    pe_status = "ราคาเหมาะสม (Fair Value)"
+                    pe_color = "#FFD600"
+
+                st.markdown("#### ⚖️ Price vs Sector (เปรียบเทียบความถูกแพง)")
+                col_pe1, col_pe2, col_pe3 = st.columns(3)
+                
+                with col_pe1:
+                    st.markdown(f"<div class='metric-box'><div class='metric-label'>{symbol} P/E</div><div class='metric-val'>{pe:.2f}</div></div>", unsafe_allow_html=True)
+                with col_pe2:
+                    st.markdown(f"<div class='metric-box'><div class='metric-label'>Sector ({sector})</div><div class='metric-val' style='color:#888'>{avg_pe:.2f}</div></div>", unsafe_allow_html=True)
+                with col_pe3:
+                     st.markdown(f"<div class='metric-box' style='border-left-color:{pe_color}'><div class='metric-label'>Verdict</div><div class='metric-val' style='color:{pe_color}; font-size:1.4rem;'>{pe_status}</div></div>", unsafe_allow_html=True)
+                st.markdown("---")
+            
+            # --- 3. Existing Guru Analysis ---
             safe_info = info if info else {}
             guru = analyze_stock_guru(safe_info, setup, symbol)
             strat_lvls, _ = calculate_strategic_supports(curr, setup)
