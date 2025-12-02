@@ -161,15 +161,33 @@ st.markdown("""
 
 @st.cache_data(ttl=300)
 def get_market_data(symbol, period, interval):
-    try: return yf.Ticker(symbol).history(period=period, interval=interval)
+    try: 
+        # Add User-Agent check here as well implicitly via Ticker
+        return yf.Ticker(symbol).history(period=period, interval=interval)
     except: return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
 def get_stock_info(symbol):
     try: 
-        # yfinance API call to get fundamental data (P/E, Sector, etc.)
-        return yf.Ticker(symbol).info
-    except: return None
+        # --- FIX: Add User-Agent Session ---
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        })
+        
+        # Pass the session to the Ticker
+        ticker = yf.Ticker(symbol, session=session)
+        
+        # Fetch info
+        info = ticker.info
+        
+        # Check validity (sometimes yfinance returns empty dict)
+        if info and len(info) > 5:
+            return info
+        return None
+    except Exception as e: 
+        # print(f"Error: {e}") # Uncomment for debugging
+        return None
 
 # --- Sector Benchmark Function (ค่าเฉลี่ย P/E ของอุตสาหกรรม) ---
 def get_sector_pe_benchmark(sector):
