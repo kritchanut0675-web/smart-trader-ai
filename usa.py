@@ -169,23 +169,24 @@ def get_stock_info(symbol):
     try: return yf.Ticker(symbol).info
     except: return None
 
-# Helper to get benchmark PE by sector (Approximate)
+# --- NEW: Sector Benchmark Function ---
 def get_sector_pe_benchmark(sector):
+    # ค่าเฉลี่ย P/E โดยประมาณของแต่ละอุตสาหกรรม (ใช้เพื่อเปรียบเทียบ)
     benchmarks = {
-        'Technology': 25,
-        'Financial Services': 15,
-        'Healthcare': 22,
-        'Consumer Cyclical': 20,
-        'Industrials': 20,
+        'Technology': 25, 
+        'Financial Services': 15, 
+        'Healthcare': 22, 
+        'Consumer Cyclical': 20, 
+        'Industrials': 20, 
         'Energy': 12,
         'Communication Services': 20,
         'Basic Materials': 15,
         'Real Estate': 30,
         'Utilities': 18
     }
-    return benchmarks.get(sector, 20) # Default 20
+    return benchmarks.get(sector, 20) # Default 20 ถ้าหาไม่เจอ
 
-# ... (Previous Logic Functions: Support, AI Reasoning, etc. kept same) ...
+# --- Logic Functions ---
 def calculate_strategic_supports(price, setup_data=None):
     if price > 2000000: step = 50000      
     elif price > 100000: step = 10000     
