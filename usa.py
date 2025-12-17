@@ -533,6 +533,20 @@ if symbol:
         df = get_market_data(symbol, period, interval)
     
     if not df.empty:
+        # [NEW FEATURE] Download Button in Sidebar
+        @st.cache_data
+        def convert_df(df):
+            return df.to_csv().encode('utf-8')
+        
+        csv_data = convert_df(df)
+        st.sidebar.markdown("---")
+        st.sidebar.download_button(
+            label="📥 Download Market Data (CSV)",
+            data=csv_data,
+            file_name=f'{symbol}_data.csv',
+            mime='text/csv',
+        )
+
         curr, chg = df['Close'].iloc[-1], df['Close'].iloc[-1] - df['Close'].iloc[-2]
         pct, color = (chg / df['Close'].iloc[-2]) * 100, "#00E676" if chg >= 0 else "#FF1744"
         
@@ -676,6 +690,36 @@ if symbol:
                 with col_pe1: st.markdown(f"<div class='metric-box'><div class='metric-label'>{symbol} P/E</div><div class='metric-val'>{pe:.2f}</div></div>", unsafe_allow_html=True)
                 with col_pe2: st.markdown(f"<div class='metric-box'><div class='metric-label'>Sector ({sector})</div><div class='metric-val' style='color:#888'>{avg_pe:.2f}</div></div>", unsafe_allow_html=True)
                 with col_pe3: st.markdown(f"<div class='metric-box' style='border-left-color:{pe_color}'><div class='metric-label'>Verdict</div><div class='metric-val' style='color:{pe_color}; font-size:1.4rem;'>{pe_status}</div></div>", unsafe_allow_html=True)
+                
+                # [NEW FEATURE] Financial Growth Chart
+                st.markdown("---")
+                st.markdown("#### 💰 Financial Growth (งบการเงินย้อนหลัง)")
+                try:
+                    ticker = yf.Ticker(symbol)
+                    fin_df = ticker.financials
+                    if not fin_df.empty:
+                        rev = fin_df.loc['Total Revenue'] if 'Total Revenue' in fin_df.index else fin_df.iloc[0]
+                        net = fin_df.loc['Net Income'] if 'Net Income' in fin_df.index else fin_df.iloc[-1]
+                        rev = rev.sort_index()
+                        net = net.sort_index()
+                        
+                        fig_fin = go.Figure()
+                        fig_fin.add_trace(go.Bar(x=rev.index.year, y=rev.values, name='Revenue', marker_color='#2979FF'))
+                        fig_fin.add_trace(go.Bar(x=net.index.year, y=net.values, name='Net Income', marker_color='#00E676'))
+                        
+                        fig_fin.update_layout(
+                            template='plotly_dark',
+                            barmode='group',
+                            height=350,
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            title="Revenue vs Net Income (Annual)"
+                        )
+                        st.plotly_chart(fig_fin, use_container_width=True)
+                    else:
+                        st.info("ไม่พบข้อมูลงบการเงิน (อาจเป็น Crypto หรือ ETF)")
+                except:
+                    st.warning("ไม่สามารถดึงกราฟงบการเงินได้ในขณะนี้")
                 st.markdown("---")
             
             guru = analyze_stock_guru(safe_info, setup, symbol)
