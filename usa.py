@@ -190,6 +190,48 @@ def get_stock_info(symbol):
         return {} 
     except: return {}
 
+# [UPDATED] Robust Financial Data Fetcher
+@st.cache_data(ttl=3600)
+def get_financial_data_robust(symbol):
+    try:
+        # Filter out Crypto/Currencies which don't have standard financials
+        if "-USD" in symbol or "=F" in symbol:
+            return None
+            
+        ticker = yf.Ticker(symbol)
+        fin = ticker.financials
+        
+        if fin.empty: 
+            return None
+
+        # Clean and Transpose
+        fin = fin.T # Transpose to have Dates as Index
+        fin.index = pd.to_datetime(fin.index)
+        
+        # Prepare Data Dict
+        data_to_plot = {}
+        
+        # Try finding Revenue
+        rev_keys = ['Total Revenue', 'Revenue', 'TotalRevenue']
+        for k in rev_keys:
+            if k in fin.columns:
+                data_to_plot['Revenue'] = fin[k]
+                break
+                
+        # Try finding Net Income
+        net_keys = ['Net Income', 'Net Income Common Stockholders', 'NetIncome']
+        for k in net_keys:
+            if k in fin.columns:
+                data_to_plot['Net Income'] = fin[k]
+                break
+                
+        if data_to_plot:
+            return pd.DataFrame(data_to_plot).sort_index()
+            
+        return None
+    except Exception as e:
+        return None
+
 def get_sector_pe_benchmark(sector):
     benchmarks = {
         'Technology': 25, 'Financial Services': 15, 'Healthcare': 22, 
@@ -691,35 +733,38 @@ if symbol:
                 with col_pe2: st.markdown(f"<div class='metric-box'><div class='metric-label'>Sector ({sector})</div><div class='metric-val' style='color:#888'>{avg_pe:.2f}</div></div>", unsafe_allow_html=True)
                 with col_pe3: st.markdown(f"<div class='metric-box' style='border-left-color:{pe_color}'><div class='metric-label'>Verdict</div><div class='metric-val' style='color:{pe_color}; font-size:1.4rem;'>{pe_status}</div></div>", unsafe_allow_html=True)
                 
-                # [NEW FEATURE] Financial Growth Chart
+                # [FIXED] Robust Financial Growth Chart
                 st.markdown("---")
                 st.markdown("#### 💰 Financial Growth (งบการเงินย้อนหลัง)")
-                try:
-                    ticker = yf.Ticker(symbol)
-                    fin_df = ticker.financials
-                    if not fin_df.empty:
-                        rev = fin_df.loc['Total Revenue'] if 'Total Revenue' in fin_df.index else fin_df.iloc[0]
-                        net = fin_df.loc['Net Income'] if 'Net Income' in fin_df.index else fin_df.iloc[-1]
-                        rev = rev.sort_index()
-                        net = net.sort_index()
+                
+                fin_df = get_financial_data_robust(symbol)
+                
+                if fin_df is not None:
+                    fig_fin = go.Figure()
+                    
+                    if 'Revenue' in fin_df.columns:
+                        fig_fin.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Revenue'], name='Revenue', marker_color='#2979FF'))
                         
-                        fig_fin = go.Figure()
-                        fig_fin.add_trace(go.Bar(x=rev.index.year, y=rev.values, name='Revenue', marker_color='#2979FF'))
-                        fig_fin.add_trace(go.Bar(x=net.index.year, y=net.values, name='Net Income', marker_color='#00E676'))
-                        
-                        fig_fin.update_layout(
-                            template='plotly_dark',
-                            barmode='group',
-                            height=350,
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            title="Revenue vs Net Income (Annual)"
-                        )
-                        st.plotly_chart(fig_fin, use_container_width=True)
+                    if 'Net Income' in fin_df.columns:
+                        fig_fin.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Net Income'], name='Net Income', marker_color='#00E676'))
+                    
+                    fig_fin.update_layout(
+                        template='plotly_dark',
+                        barmode='group',
+                        height=350,
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        title="Revenue vs Net Income (Annual)",
+                        xaxis_title="Year",
+                        yaxis_title="Amount (Currency)"
+                    )
+                    st.plotly_chart(fig_fin, use_container_width=True)
+                else:
+                    if "-USD" in symbol:
+                        st.info("ℹ️ สินทรัพย์ประเภท Crypto/Currency ไม่มีงบการเงินให้แสดง")
                     else:
-                        st.info("ไม่พบข้อมูลงบการเงิน (อาจเป็น Crypto หรือ ETF)")
-                except:
-                    st.warning("ไม่สามารถดึงกราฟงบการเงินได้ในขณะนี้")
+                        st.warning("⚠️ ไม่พบข้อมูลงบการเงิน (อาจเป็นหุ้นใหม่ ETF หรือข้อมูลยังไม่มา)")
+
                 st.markdown("---")
             
             guru = analyze_stock_guru(safe_info, setup, symbol)
