@@ -190,43 +190,60 @@ def get_stock_info(symbol):
         return {} 
     except: return {}
 
-# [UPDATED] Robust Financial Data Fetcher
+# [UPDATED] Super Robust Financial Data (Revenue, Net Income, Cash Flow)
 @st.cache_data(ttl=3600)
 def get_financial_data_robust(symbol):
     try:
-        # Filter out Crypto/Currencies which don't have standard financials
         if "-USD" in symbol or "=F" in symbol:
-            return None
+            return None # Crypto/Forex usually don't have this
             
         ticker = yf.Ticker(symbol)
-        fin = ticker.financials
         
-        if fin.empty: 
+        # 1. Income Statement
+        try:
+            inc = ticker.financials
+            if inc.empty: inc = ticker.income_statement
+        except: inc = pd.DataFrame()
+        
+        # 2. Cash Flow Statement
+        try:
+            cf = ticker.cashflow
+            if cf.empty: cf = ticker.cash_flow
+        except: cf = pd.DataFrame()
+
+        if inc.empty and cf.empty:
             return None
 
-        # Clean and Transpose
-        fin = fin.T # Transpose to have Dates as Index
-        fin.index = pd.to_datetime(fin.index)
+        # Helper to find row with fuzzy matching
+        def get_row_data(df, keywords):
+            for idx in df.index:
+                for k in keywords:
+                    if k.lower() == str(idx).lower() or k.lower() in str(idx).lower():
+                        return df.loc[idx]
+            return None
+
+        # Extract Revenue
+        rev_data = get_row_data(inc, ['Total Revenue', 'Revenue', 'Gross Revenue', 'Operating Revenue'])
         
-        # Prepare Data Dict
-        data_to_plot = {}
+        # Extract Net Income
+        net_data = get_row_data(inc, ['Net Income', 'Net Income Common Stockholders', 'Net Income From Continuing And Discontinued Operation'])
         
-        # Try finding Revenue
-        rev_keys = ['Total Revenue', 'Revenue', 'TotalRevenue']
-        for k in rev_keys:
-            if k in fin.columns:
-                data_to_plot['Revenue'] = fin[k]
-                break
-                
-        # Try finding Net Income
-        net_keys = ['Net Income', 'Net Income Common Stockholders', 'NetIncome']
-        for k in net_keys:
-            if k in fin.columns:
-                data_to_plot['Net Income'] = fin[k]
-                break
-                
-        if data_to_plot:
-            return pd.DataFrame(data_to_plot).sort_index()
+        # Extract Operating Cash Flow
+        ocf_data = get_row_data(cf, ['Operating Cash Flow', 'Total Cash From Operating Activities', 'Cash Flow From Continuing Operating Activities'])
+
+        # Combine into DataFrame
+        combined = pd.DataFrame()
+        if rev_data is not None: combined['Revenue'] = rev_data
+        if net_data is not None: combined['Net Income'] = net_data
+        if ocf_data is not None: combined['Operating Cash Flow'] = ocf_data
+        
+        if not combined.empty:
+            # Sort by date ascending (old -> new)
+            combined.sort_index(inplace=True)
+            # Filter only last 4 years/periods if too many
+            if len(combined) > 5:
+                combined = combined.tail(5)
+            return combined
             
         return None
     except Exception as e:
@@ -733,32 +750,40 @@ if symbol:
                 with col_pe2: st.markdown(f"<div class='metric-box'><div class='metric-label'>Sector ({sector})</div><div class='metric-val' style='color:#888'>{avg_pe:.2f}</div></div>", unsafe_allow_html=True)
                 with col_pe3: st.markdown(f"<div class='metric-box' style='border-left-color:{pe_color}'><div class='metric-label'>Verdict</div><div class='metric-val' style='color:{pe_color}; font-size:1.4rem;'>{pe_status}</div></div>", unsafe_allow_html=True)
                 
-                # [FIXED] Robust Financial Growth Chart
+                # [UPDATED] Financial Growth Chart (Revenue & Net Income) & Cash Flow
                 st.markdown("---")
-                st.markdown("#### 💰 Financial Growth (งบการเงินย้อนหลัง)")
+                st.markdown("#### 💰 Financial Performance (งบการเงินย้อนหลัง)")
                 
                 fin_df = get_financial_data_robust(symbol)
                 
                 if fin_df is not None:
-                    fig_fin = go.Figure()
-                    
+                    # 1. Income Statement Chart
+                    fig_inc = go.Figure()
                     if 'Revenue' in fin_df.columns:
-                        fig_fin.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Revenue'], name='Revenue', marker_color='#2979FF'))
-                        
+                        fig_inc.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Revenue'], name='Revenue', marker_color='#2979FF'))
                     if 'Net Income' in fin_df.columns:
-                        fig_fin.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Net Income'], name='Net Income', marker_color='#00E676'))
+                        fig_inc.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Net Income'], name='Net Income', marker_color='#00E676'))
                     
-                    fig_fin.update_layout(
-                        template='plotly_dark',
-                        barmode='group',
-                        height=350,
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)',
+                    fig_inc.update_layout(
+                        template='plotly_dark', barmode='group', height=350,
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                         title="Revenue vs Net Income (Annual)",
-                        xaxis_title="Year",
-                        yaxis_title="Amount (Currency)"
+                        xaxis_title="Year", yaxis_title="Amount"
                     )
-                    st.plotly_chart(fig_fin, use_container_width=True)
+                    st.plotly_chart(fig_inc, use_container_width=True)
+                    
+                    # 2. Cash Flow Chart (Separated)
+                    if 'Operating Cash Flow' in fin_df.columns:
+                        fig_cf = go.Figure()
+                        fig_cf.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Operating Cash Flow'], name='Operating Cash Flow', marker_color='#AA00FF'))
+                        fig_cf.update_layout(
+                            template='plotly_dark', height=300,
+                            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                            title="Operating Cash Flow (กระแสเงินสดจากการดำเนินงาน)",
+                            xaxis_title="Year", yaxis_title="Amount"
+                        )
+                        st.plotly_chart(fig_cf, use_container_width=True)
+
                 else:
                     if "-USD" in symbol:
                         st.info("ℹ️ สินทรัพย์ประเภท Crypto/Currency ไม่มีงบการเงินให้แสดง")
