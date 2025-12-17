@@ -619,7 +619,7 @@ if symbol:
 
         st.markdown(f"""<div class="glass-card" style="border-top:5px solid {color};text-align:center;"><div style="font-size:3.5rem;font-weight:900;line-height:1;margin-bottom:10px;">{symbol}</div><div style="font-size:3rem;color:{color};font-weight:bold;">{curr:,.2f}</div><div style="background:rgba({sc_glow}, 0.2);padding:5px 20px;border-radius:20px;display:inline-block;margin-top:10px;"><span style="color:{color};font-weight:bold;font-size:1.1rem;">{chg:+.2f} ({pct:+.2f}%)</span></div></div>""", unsafe_allow_html=True)
 
-        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R Dynamic", "🧠 AI Guru", "🇹🇭 Bitkub AI", "🧮 Calc"])
+        tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R Dynamic", "🧠 AI Guru", "💰 Financials", "🇹🇭 Bitkub AI", "🧮 Calc"])
 
         with tabs[0]:
             exp12 = df['Close'].ewm(span=12, adjust=False).mean()
@@ -749,47 +749,6 @@ if symbol:
                 with col_pe1: st.markdown(f"<div class='metric-box'><div class='metric-label'>{symbol} P/E</div><div class='metric-val'>{pe:.2f}</div></div>", unsafe_allow_html=True)
                 with col_pe2: st.markdown(f"<div class='metric-box'><div class='metric-label'>Sector ({sector})</div><div class='metric-val' style='color:#888'>{avg_pe:.2f}</div></div>", unsafe_allow_html=True)
                 with col_pe3: st.markdown(f"<div class='metric-box' style='border-left-color:{pe_color}'><div class='metric-label'>Verdict</div><div class='metric-val' style='color:{pe_color}; font-size:1.4rem;'>{pe_status}</div></div>", unsafe_allow_html=True)
-                
-                # [UPDATED] Financial Growth Chart (Revenue & Net Income) & Cash Flow
-                st.markdown("---")
-                st.markdown("#### 💰 Financial Performance (งบการเงินย้อนหลัง)")
-                
-                fin_df = get_financial_data_robust(symbol)
-                
-                if fin_df is not None:
-                    # 1. Income Statement Chart
-                    fig_inc = go.Figure()
-                    if 'Revenue' in fin_df.columns:
-                        fig_inc.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Revenue'], name='Revenue', marker_color='#2979FF'))
-                    if 'Net Income' in fin_df.columns:
-                        fig_inc.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Net Income'], name='Net Income', marker_color='#00E676'))
-                    
-                    fig_inc.update_layout(
-                        template='plotly_dark', barmode='group', height=350,
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        title="Revenue vs Net Income (Annual)",
-                        xaxis_title="Year", yaxis_title="Amount"
-                    )
-                    st.plotly_chart(fig_inc, use_container_width=True)
-                    
-                    # 2. Cash Flow Chart (Separated)
-                    if 'Operating Cash Flow' in fin_df.columns:
-                        fig_cf = go.Figure()
-                        fig_cf.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Operating Cash Flow'], name='Operating Cash Flow', marker_color='#AA00FF'))
-                        fig_cf.update_layout(
-                            template='plotly_dark', height=300,
-                            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                            title="Operating Cash Flow (กระแสเงินสดจากการดำเนินงาน)",
-                            xaxis_title="Year", yaxis_title="Amount"
-                        )
-                        st.plotly_chart(fig_cf, use_container_width=True)
-
-                else:
-                    if "-USD" in symbol:
-                        st.info("ℹ️ สินทรัพย์ประเภท Crypto/Currency ไม่มีงบการเงินให้แสดง")
-                    else:
-                        st.warning("⚠️ ไม่พบข้อมูลงบการเงิน (อาจเป็นหุ้นใหม่ ETF หรือข้อมูลยังไม่มา)")
-
                 st.markdown("---")
             
             guru = analyze_stock_guru(safe_info, setup, symbol)
@@ -805,7 +764,50 @@ if symbol:
             with c2:
                 for r in guru['reasons_v']: st.markdown(f"<div class='guru-card' style='border-left:4px solid {'#00E676' if '✅' in r else '#FF1744'};'>{r}</div>", unsafe_allow_html=True)
 
-        with tabs[7]:
+        with tabs[7]: # [NEW TAB] Financials
+            st.markdown("### 💰 Financial Performance (งบการเงินย้อนหลัง)")
+            
+            fin_df = get_financial_data_robust(symbol)
+            
+            if fin_df is not None:
+                # 1. Income Statement Chart
+                fig_inc = go.Figure()
+                if 'Revenue' in fin_df.columns:
+                    fig_inc.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Revenue'], name='Revenue', marker_color='#2979FF'))
+                if 'Net Income' in fin_df.columns:
+                    fig_inc.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Net Income'], name='Net Income', marker_color='#00E676'))
+                
+                fig_inc.update_layout(
+                    template='plotly_dark', barmode='group', height=400,
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    title="Revenue vs Net Income (รายได้ vs กำไรสุทธิ)",
+                    xaxis_title="Year", yaxis_title="Amount"
+                )
+                st.plotly_chart(fig_inc, use_container_width=True)
+                
+                # 2. Cash Flow Chart (Separated)
+                if 'Operating Cash Flow' in fin_df.columns:
+                    fig_cf = go.Figure()
+                    fig_cf.add_trace(go.Bar(x=fin_df.index.year, y=fin_df['Operating Cash Flow'], name='Operating Cash Flow', marker_color='#AA00FF'))
+                    fig_cf.update_layout(
+                        template='plotly_dark', height=400,
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        title="Operating Cash Flow (กระแสเงินสดจากการดำเนินงาน)",
+                        xaxis_title="Year", yaxis_title="Amount"
+                    )
+                    st.plotly_chart(fig_cf, use_container_width=True)
+                
+                st.markdown("---")
+                with st.expander("📄 ดูข้อมูลดิบ (Raw Data Table)"):
+                    st.dataframe(fin_df.style.format("{:,.0f}"))
+
+            else:
+                if "-USD" in symbol:
+                    st.info("ℹ️ สินทรัพย์ประเภท Crypto/Currency ไม่มีงบการเงินให้แสดง")
+                else:
+                    st.warning("⚠️ ไม่พบข้อมูลงบการเงิน (อาจเป็นหุ้นใหม่ ETF หรือข้อมูลยังไม่มา)")
+
+        with tabs[8]:
             bk_sel = st.radio("เลือกเหรียญ (THB)", ["BTC", "ETH"], horizontal=True)
             if bk_data:
                 pair = f"THB_{bk_sel}"
@@ -839,7 +841,7 @@ if symbol:
                 else: st.error("ไม่พบข้อมูล")
             else: st.warning("Connecting...")
         
-        with tabs[8]:
+        with tabs[9]:
             st.markdown("### 🧮 Money Management (คำนวณไม้เทรด)")
             col_calc1, col_calc2 = st.columns(2)
             with col_calc1:
