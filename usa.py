@@ -19,11 +19,10 @@ try:
 except ImportError:
     HAS_TRANSLATOR = False
 
-try: nltk.data.find('tokenizers/punkt')
-except LookupError: nltk.download('punkt')
-
-# API Config (ใส่ Key ของคุณ)
-FINNHUB_KEY = "d4l5ku1r01qt7v18ll40d4l5ku1r01qt7v18ll4g" 
+try: 
+    nltk.data.find('tokenizers/punkt')
+except LookupError: 
+    nltk.download('punkt')
 
 # --- 1. Setup & Design ---
 st.set_page_config(
@@ -33,6 +32,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Initialize Session State
 if 'symbol' not in st.session_state: st.session_state.symbol = 'GOOGL'
 
 def set_symbol(sym): st.session_state.symbol = sym
@@ -159,41 +159,31 @@ st.markdown("""
 
 # --- 3. Functions ---
 
-# --- [MODIFIED] ฟังก์ชันดึงกราฟ: ลบ Session, ใช้ ticker.history ก่อน, แก้ MultiIndex ---
 @st.cache_data(ttl=300)
 def get_market_data(symbol, period, interval):
     try:
-        # 1. ลองใช้ Ticker.history (เสถียรกว่าสำหรับการดึงรายตัว)
         ticker = yf.Ticker(symbol)
         df = ticker.history(period=period, interval=interval)
         
-        # 2. ถ้าไม่พบข้อมูล ให้ลอง Fallback ไปใช้ yf.download
         if df.empty:
             df = yf.download(symbol, period=period, interval=interval, progress=False)
         
-        # 3. จัดการกรณีข้อมูลมาเป็น MultiIndex (yfinance รุ่นใหม่)
-        # ตัวอย่าง: Columns เป็น ('Close', 'GOOGL') แทนที่จะเป็น 'Close'
         if not df.empty and isinstance(df.columns, pd.MultiIndex):
             try:
-                # ดึงเฉพาะ Level 0 (Close, Open, High, Low)
                 df.columns = df.columns.get_level_values(0)
             except:
                 pass
                 
-        # 4. ตรวจสอบว่ามีข้อมูล 'Close' จริงๆ หรือไม่
         if not df.empty and 'Close' in df.columns and len(df) > 0:
             return df
             
         return pd.DataFrame()
     except Exception as e:
-        # st.error(f"Data Fetch Error: {e}") # Debug only
         return pd.DataFrame()
 
-# --- [MODIFIED] ฟังก์ชันดึงพื้นฐาน: ลบ Session ออกเช่นกัน ---
 @st.cache_data(ttl=3600)
 def get_stock_info(symbol):
     try:
-        # ไม่ใช้ requests.Session เพื่อให้ library จัดการเอง
         ticker = yf.Ticker(symbol)
         info = ticker.info
         if info and len(info) > 5: return info
@@ -210,14 +200,14 @@ def get_sector_pe_benchmark(sector):
     return benchmarks.get(sector, 20) 
 
 def calculate_strategic_supports(price, setup_data=None):
-    if price > 2000000: step = 50000      
-    elif price > 100000: step = 10000     
-    elif price > 50000: step = 2000       
-    elif price > 10000: step = 1000       
-    elif price > 1000: step = 100         
-    elif price > 100: step = 10           
-    elif price > 10: step = 1             
-    elif price > 1: step = 0.1            
+    if price > 2000000: step = 50000       
+    elif price > 100000: step = 10000      
+    elif price > 50000: step = 2000        
+    elif price > 10000: step = 1000        
+    elif price > 1000: step = 100          
+    elif price > 100: step = 10            
+    elif price > 10: step = 1              
+    elif price > 1: step = 0.1             
     else: step = 0.01
 
     base = (price // step) * step
@@ -329,53 +319,42 @@ def get_bitkub_ticker():
         return r.json() if r.status_code == 200 else None
     except: return None
 
-def get_finnhub_news(symbol):
-    try:
-        to_date, from_date = datetime.date.today(), datetime.date.today() - datetime.timedelta(days=2)
-        clean_sym = symbol.split("-")[0]
-        url = f"https://finnhub.io/api/v1/company-news?symbol={clean_sym}&from={from_date}&to={to_date}&token={FINNHUB_KEY}"
-        data = requests.get(url).json()
-        return data[:5] if isinstance(data, list) else []
-    except: return []
-
+# --- NEWS SYSTEM (FREE & KEYLESS) ---
 @st.cache_data(ttl=3600)
 def get_ai_analyzed_news_thai(symbol):
     news_list = []
     translator = GoogleTranslator(source='auto', target='th') if HAS_TRANSLATOR else None
-    fh_news = get_finnhub_news(symbol)
-    if fh_news:
-        for i in fh_news:
-            t, s, l = i.get('headline',''), i.get('summary',''), i.get('url','#')
+    
+    # Use Google News RSS (Free, No Key)
+    try:
+        cl_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
+        q = urllib.parse.quote(f"site:bloomberg.com {cl_sym} market")
+        feed = feedparser.parse(f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en")
+        
+        # Fallback to general search if bloomberg is empty
+        if not feed.entries:
+            q = urllib.parse.quote(f"{cl_sym} finance news")
+            feed = feedparser.parse(f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en")
+            
+        for i in feed.entries[:8]:
+            t, s = i.title, re.sub(re.compile('<.*?>'), '', getattr(i, 'summary', '') or getattr(i, 'description', ''))[:300]
             sc = TextBlob(t).sentiment.polarity
+            
             if sc > 0.05: lbl, icon, cls = "ข่าวดี (Positive)", "🚀", "nc-pos"
             elif sc < -0.05: lbl, icon, cls = "ข่าวร้าย (Negative)", "🔻", "nc-neg"
             else: lbl, icon, cls = "ทั่วไป (Neutral)", "⚖️", "nc-neu"
+            
             t_th, s_th = t, s
             if translator:
-                try: t_th = translator.translate(t); s_th = translator.translate(s) if s else ""
+                try: 
+                    t_th = translator.translate(t)
+                    if s: s_th = translator.translate(s) 
                 except: pass
-            news_list.append({'title': t_th, 'summary': s_th, 'link': l, 'icon': icon, 'class': cls, 'label': lbl, 'score': sc, 'source': 'Finnhub'})
-
-    if len(news_list) < 3:
-        try:
-            cl_sym = symbol.replace("-THB","").replace("-USD","").replace("=F","")
-            q = urllib.parse.quote(f"site:bloomberg.com {cl_sym} market")
-            feed = feedparser.parse(f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en")
-            if not feed.entries:
-                q = urllib.parse.quote(f"{cl_sym} finance news")
-                feed = feedparser.parse(f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en")
-            for i in feed.entries[:5]:
-                t, s = i.title, re.sub(re.compile('<.*?>'), '', getattr(i, 'summary', '') or getattr(i, 'description', ''))[:300]
-                sc = TextBlob(t).sentiment.polarity
-                if sc > 0.05: lbl, icon, cls = "ข่าวดี (Positive)", "🚀", "nc-pos"
-                elif sc < -0.05: lbl, icon, cls = "ข่าวร้าย (Negative)", "🔻", "nc-neg"
-                else: lbl, icon, cls = "ทั่วไป (Neutral)", "⚖️", "nc-neu"
-                t_th, s_th = t, s
-                if translator:
-                    try: t_th = translator.translate(t); s_th = translator.translate(s) if s else ""
-                    except: pass
-                news_list.append({'title': t_th, 'summary': s_th, 'link': i.link, 'icon': icon, 'class': cls, 'label': lbl, 'score': sc, 'source': 'Google'})
-        except: pass
+            
+            news_list.append({'title': t_th, 'summary': s_th, 'link': i.link, 'icon': icon, 'class': cls, 'label': lbl, 'score': sc, 'source': 'Google News'})
+    except Exception as e: 
+        pass
+        
     return news_list[:10]
 
 def calculate_technical_setup(df):
@@ -426,7 +405,7 @@ def calculate_heikin_ashi(df):
     ha['Open'] = [ (df['Open'][0]+df['Close'][0])/2 ] + [0]*(len(df)-1)
     for i in range(1, len(df)): ha['Open'].iloc[i] = (ha['Open'].iloc[i-1]+ha['Close'].iloc[i-1])/2
     ha['High'] = ha[['High','Open','Close']].max(axis=1)
-    ha['Low'] = ha[['Low','Open','Close']].min(axis=1) # Corrected column name assignment
+    ha['Low'] = ha[['Low','Open','Close']].min(axis=1) 
     return ha
 
 def gen_ai_verdict(setup, news):
@@ -447,10 +426,7 @@ def gen_ai_verdict(setup, news):
     verd = "STRONG BUY" if score>=80 else "BUY" if score>=60 else "SELL" if score<=40 else "STRONG SELL" if score<=20 else "HOLD"
     return t_txt, n_txt, score, verd
 
-# --- NEW: Added Missing Functions for Bitkub Logic ---
-
 def calculate_static_round_numbers(price):
-    # คำนวณแนวรับต้านจิตวิทยา (เลขกลมๆ)
     if price <= 0: return {"Res 1": 0, "Sup 1": 0, "Step": 0}
     magnitude = 10 ** (len(str(int(price))) - 1)
     if magnitude == 0: magnitude = 1
@@ -460,7 +436,7 @@ def calculate_static_round_numbers(price):
     elif price < 1000: step = 50
     elif price < 10000: step = 500
     elif price < 100000: step = 5000
-    else: step = 10000 # BTC case
+    else: step = 10000 
     
     ceil_val = (int(price) // step + 1) * step
     floor_val = (int(price) // step) * step
@@ -468,7 +444,6 @@ def calculate_static_round_numbers(price):
     return {"Res 1": ceil_val, "Sup 1": floor_val, "Step": step}
 
 def calculate_bitkub_ai_levels(high24, low24, last):
-    # คำนวณ Fibonacci Retracement อย่างง่ายสำหรับ Day trade
     diff = high24 - low24
     if diff == 0: diff = 1
     
@@ -507,7 +482,6 @@ def calculate_bitkub_ai_levels(high24, low24, last):
     }
 
 def analyze_bitkub_static_guru(price, static_lvls):
-    # สร้างคำแนะนำสำหรับ Bitkub
     r1 = static_lvls['Res 1']
     s1 = static_lvls['Sup 1']
     mid = (r1 + s1) / 2
@@ -542,7 +516,6 @@ with st.sidebar:
     st.markdown("---")
     chart_type = st.selectbox("Chart Style", ["Candlestick", "Heikin Ashi"])
     period = st.select_slider("Period", ["1mo","3mo","6mo","1y"], value="6mo")
-    # Added Interval Selector
     interval = st.selectbox("Timeframe", ["1d", "1wk", "1h", "15m", "5m"], index=0)
 
 # --- 5. Main ---
@@ -557,7 +530,6 @@ symbol = st.session_state.symbol.upper()
 
 if symbol:
     with st.spinner("🚀 AI Analyzing..."):
-        # Uses selected interval
         df = get_market_data(symbol, period, interval)
     
     if not df.empty:
@@ -577,15 +549,12 @@ if symbol:
         tabs = st.tabs(["📈 Chart", "📊 Stats", "📰 AI News", "🎯 Setup", "🤖 Verdict", "🛡️ S/R Dynamic", "🧠 AI Guru", "🇹🇭 Bitkub AI", "🧮 Calc"])
 
         with tabs[0]:
-            # --- UPGRADED CHART LOGIC (MACD + Volume) ---
-            # Calculate MACD
             exp12 = df['Close'].ewm(span=12, adjust=False).mean()
             exp26 = df['Close'].ewm(span=26, adjust=False).mean()
             macd = exp12 - exp26
             signal_line = macd.ewm(span=9, adjust=False).mean()
             macd_hist = macd - signal_line
 
-            # Create 3-Row Subplot
             fig = make_subplots(
                 rows=3, cols=1, 
                 shared_xaxes=True, 
@@ -594,22 +563,18 @@ if symbol:
                 specs=[[{"secondary_y": False}], [{"secondary_y": False}], [{"secondary_y": True}]]
             )
 
-            # 1. Price Chart
             if chart_type == "Heikin Ashi":
                 ha = calculate_heikin_ashi(df)
                 fig.add_trace(go.Candlestick(x=df.index, open=ha['Open'], high=ha['High'], low=ha['Low'], close=ha['Close'], name="HA"), row=1, col=1)
             else:
                 fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
             
-            # Add EMAs to Price
             fig.add_trace(go.Scatter(x=df.index, y=df['Close'].ewm(span=50).mean(), line=dict(color='#2979FF', width=1.5), name="EMA50"), row=1, col=1)
             fig.add_trace(go.Scatter(x=df.index, y=df['Close'].ewm(span=200).mean(), line=dict(color='#FF9100', width=1.5), name="EMA200"), row=1, col=1)
 
-            # 2. Volume Chart
             colors_vol = ['#00E676' if r.Open < r.Close else '#FF1744' for i, r in df.iterrows()]
             fig.add_trace(go.Bar(x=df.index, y=df['Volume'], name='Volume', marker_color=colors_vol, showlegend=False), row=2, col=1)
 
-            # 3. MACD Indicator
             fig.add_trace(go.Bar(x=df.index, y=macd_hist, name='MACD Hist', marker_color='#00E5FF'), row=3, col=1)
             fig.add_trace(go.Scatter(x=df.index, y=macd, line=dict(color='#fff', width=1), name='MACD'), row=3, col=1)
             fig.add_trace(go.Scatter(x=df.index, y=signal_line, line=dict(color='#FFD600', width=1), name='Signal'), row=3, col=1)
@@ -645,10 +610,10 @@ if symbol:
                         st.markdown(f"""<div class='metric-box' style='border-left-color:{color}'><div class='metric-label'>AI Sector Compare (Avg {avg_pe})</div><div class='metric-val' style='color:{color}; font-size:1.6rem;'>{icon} {status}</div><div style='color:#ccc; font-size:0.9rem;'>Difference: {diff:+.1f}%</div></div>""", unsafe_allow_html=True)
 
         with tabs[2]:
-            st.markdown("### 📰 Market Sentiment")
+            st.markdown("### 📰 Market Sentiment (Free Source)")
             if news:
                 for n in news: st.markdown(f"""<div class="news-card {n['class']}"><div style="display:flex;justify-content:space-between;margin-bottom:5px;"><div style="display:flex;align-items:center;gap:10px;"><span style="font-size:1rem;">{n['icon']}</span><span style="font-weight:bold;color:#fff;">{n['label']}</span></div><span style="font-size:0.8rem;background:#333;padding:2px 8px;border-radius:5px;">{n['source']}</span></div><h4 style="margin:10px 0;color:#e0e0e0;">{n['title']}</h4><p style="color:#aaa;font-size:0.9rem;line-height:1.5;">{n['summary']}</p><div style="text-align:right;margin-top:10px;"><a href="{n['link']}" target="_blank" style="color:#00E5FF;text-decoration:none;">🔗 อ่านต่อ</a></div></div>""", unsafe_allow_html=True)
-            else: st.info("ไม่พบข่าว หรือ API ถูกจำกัด")
+            else: st.info("ไม่พบข่าว หรือ Internet มีปัญหา")
 
         with tabs[3]:
             if setup:
@@ -733,7 +698,6 @@ if symbol:
                 d = bk_data.get(pair, {})
                 if d:
                     last, h24, l24 = d.get('last',0), d.get('high24hr',0), d.get('low24hr',0)
-                    # Now these functions exist!
                     ai_bk = calculate_bitkub_ai_levels(h24, l24, last)
                     static_lvls = calculate_static_round_numbers(last)
                     bk_verd, bk_col, bk_desc, bk_strat = analyze_bitkub_static_guru(last, static_lvls)
