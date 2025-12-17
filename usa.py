@@ -249,6 +249,57 @@ def get_financial_data_robust(symbol):
     except Exception as e:
         return None
 
+# [NEW] AI Financial Analyst Logic
+def analyze_financial_health_score(df):
+    score = 0
+    reasons = []
+    
+    if len(df) < 2:
+        return 5, ["⚠️ ข้อมูลย้อนหลังไม่เพียงพอสำหรับการวิเคราะห์แนวโน้ม"]
+
+    latest = df.iloc[-1]
+    prev = df.iloc[0] # Compare with oldest available in the window (e.g. 4 years ago)
+    
+    # 1. Revenue Growth (3 Points)
+    if 'Revenue' in df.columns:
+        rev_growth = ((latest['Revenue'] - prev['Revenue']) / prev['Revenue']) * 100
+        if rev_growth > 50: score += 3; reasons.append(f"✅ รายได้เติบโตอย่างก้าวกระโดด (+{rev_growth:.0f}%)")
+        elif rev_growth > 20: score += 2; reasons.append(f"✅ รายได้เติบโตดี (+{rev_growth:.0f}%)")
+        elif rev_growth > 0: score += 1; reasons.append(f"⚖️ รายได้เติบโตเล็กน้อย (+{rev_growth:.0f}%)")
+        else: score -= 1; reasons.append(f"⚠️ รายได้หดตัว ({rev_growth:.0f}%)")
+        
+    # 2. Net Income (3 Points)
+    if 'Net Income' in df.columns:
+        if latest['Net Income'] > 0:
+            score += 1; reasons.append("✅ บริษัทมีกำไรสุทธิ (Profitable)")
+            net_growth = ((latest['Net Income'] - prev['Net Income']) / abs(prev['Net Income'])) * 100
+            if net_growth > 20: score += 2; reasons.append("✅ กำไรเติบโตแข็งแกร่ง")
+            elif net_growth > 0: score += 1
+        else:
+            score -= 2; reasons.append("❌ ขาดทุนสุทธิ (Net Loss)")
+            
+    # 3. Cash Flow & Quality (4 Points)
+    if 'Operating Cash Flow' in df.columns:
+        cf = latest['Operating Cash Flow']
+        ni = latest.get('Net Income', 0)
+        
+        if cf > 0: 
+            score += 2; reasons.append("✅ กระแสเงินสดเป็นบวก (Cash Flow Positive)")
+            if ni > 0 and cf > ni: 
+                score += 2; reasons.append("💎 Quality of Earnings ดีเยี่ยม (CFO > Net Income)")
+            elif ni > 0 and cf < ni:
+                score -= 1; reasons.append("⚠️ ระวัง: กำไรทางบัญชีสูงกว่าเงินสดที่ได้รับจริง (Accrual Hazard)")
+        else:
+            score -= 2; reasons.append("❌ กระแสเงินสดติดลบ (Cash Burn)")
+            
+    # Final Adjustments
+    score = max(0, min(10, score))
+    
+    verdict = "Strong Buy / Growth" if score >= 8 else "Buy / Stable" if score >= 6 else "Hold / Watch" if score >= 4 else "High Risk / Avoid"
+    color = "#00E676" if score >= 7 else "#FFD600" if score >= 4 else "#FF1744"
+    
+    return score, reasons, verdict, color
+
 def get_sector_pe_benchmark(sector):
     benchmarks = {
         'Technology': 25, 'Financial Services': 15, 'Healthcare': 22, 
@@ -770,6 +821,11 @@ if symbol:
             fin_df = get_financial_data_robust(symbol)
             
             if fin_df is not None:
+                # [NEW FEATURE] AI Financial Health Check
+                f_score, f_reasons, f_verdict, f_color = analyze_financial_health_score(fin_df)
+                
+                st.markdown(f"""<div class='ai-insight-box' style='border-left: 5px solid {f_color}; margin-bottom:20px;'><h3 style='margin:0; color:{f_color};'>🏥 AI Financial Health Check: {f_score}/10</h3><p style='font-size:1.1rem; font-weight:bold; color:#fff;'>{f_verdict}</p><hr style='border-color:#333;'>{"".join([f"<div style='margin-bottom:5px;'>{r}</div>" for r in f_reasons])}</div>""", unsafe_allow_html=True)
+
                 # 1. Income Statement Chart
                 fig_inc = go.Figure()
                 if 'Revenue' in fin_df.columns:
